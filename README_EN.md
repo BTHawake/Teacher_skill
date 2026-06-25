@@ -221,7 +221,29 @@ Style analysis covers six dimensions: sentence structure, vocabulary, teaching p
 
 > **Dependency**: Video subtitle extraction requires `yt-dlp` (`pip install yt-dlp`). If the video lacks subtitles, please upload subtitle files directly.
 
-### Cross-Disciplinary Thinking (v2.0 New)
+### Pre-Lesson Search Verification (v2.8 New)
+
+Mandatory web search before every lesson — verifies teaching content against at least 2 authoritative sources. If all sources are unreachable:
+
+1. Report all attempted URLs and failure reasons to the user
+2. Stop teaching — cannot proceed without network verification
+3. Wait for explicit user instruction ("continue", "skip search", etc.)
+4. Suggest switching network or proxy and trying again
+
+On success, cite sources and continue normally without interruption.
+
+### Assessment System (v2.8 New)
+
+Question-based assessment replaces verbal review. Every knowledge point is verified with test questions, not "tell me what this is."
+
+| Type | Trigger | Format |
+|------|---------|--------|
+| **Mini Assessment** | After every 1-2 units | 1-2 questions per unit |
+| **Major Assessment** | After a major module (4-5 units) | Cross-topic comprehensive questions |
+
+Flow: Ask question → User answers → Grade with feedback → Next question. Wrong answers get a simplified re-explanation followed by a same-type variation question. Track accuracy per unit; weak areas get priority in next review.
+
+### Cross-Disciplinary Thinking (v2.0)
 
 No longer teaching subjects in isolation — networked knowledge connections are woven into the entire teaching workflow, helping learners build cross-disciplinary thinking habits.
 
