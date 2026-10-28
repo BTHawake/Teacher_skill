@@ -3,7 +3,7 @@ name: html-first-teaching
 description: >
   teacher.skill v4.1 HTML-first 教学法：HTML 是主课堂，
   聊天只做学情诊断、答疑、批改与下一步决策。
-version: 4.2.0
+version: 4.3.0
 ---
 
 # HTML-first 教学法（v4.0）

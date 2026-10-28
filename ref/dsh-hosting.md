@@ -27,6 +27,7 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 | mode | 含义 | 下一步 |
 |------|------|--------|
 | `dsh-plugin` | DSH 已挂 `/teacher` 插件 | 用同源 `/teacher/api/answers`，发相对链接 |
+| `dsh-plugin-register-required` | 插件已装，但 workspace 没注册 | 先 `dsh_register.py`，再 build |
 | `dsh-plugin-missing` | DSH 可达，但插件没挂 | 判断是否安装；不装就用 `fallback` |
 | `course-server` | 已有或可启动独立服务 | 启动/复用服务，发绝对 URL |
 
@@ -72,20 +73,39 @@ dsh plugin --profile web add "link:$PWD"
 
 ### 配置
 
+新安装不写死任何机器路径：
+
 ```yaml
 - id: teacher-course
   name: dsh-teacher-skill
   config:
-    workspaceRoot: 'D:\wake\HarnessWorkspace'
+    workspaceRoot: ''   # 可选，仅旧版单根 fallback
+    registry: ''        # 默认 ~/.dsh/teacher-workspaces.json
     token: ''
 ```
 
-`workspaceRoot` 是课程工作区的父目录；URL 映射：
+映射：
 
 ```
-<workspaceRoot>/<workspace>/讲义/<course>/index.html
+<注册的 workspace root>/讲义/<course>/index.html
   → /teacher/<workspace>/<course>/index.html
 ```
+
+### 注册 workspace（AI 自己判断）
+
+AI 用 `pwd` 决定 workspace root，然后写注册表：
+
+```bash
+python scripts/dsh_register.py --workspace-root "$PWD" --workspace "<workspace>"
+```
+
+注册表：
+
+```json
+{"workspaces":{"操作系统":"D:\\wake\\HarnessWorkspace\\操作系统"}}
+```
+
+插件只服务注册过的根；没注册返回 503。旧版插件没有 `workspaces` 字段时，继续按 legacy `workspaceRoot` 工作。
 
 ### 生成课件
 

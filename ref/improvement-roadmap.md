@@ -2,7 +2,7 @@
 
 > 创建日期：2026-06-04
 > 来源：反蒸馏 MVP 实际教学测试 + 生态调研反馈 + 408 真实教学使用
-> 版本：当前 v4.2.0（2026-10-28）
+> 版本：当前 v4.3.0（2026-10-28）
 
 ---
 
@@ -141,7 +141,14 @@ AI 每次加载都要啃完整份文件，但每次只用其中一小部分。�
 - [x] P1-3 学科类型区分（v3.0.0：knowledge / methodology）
 - [ ] P2-1 跨学科连接自动化（索引表，未做）
 - [ ] P2-2 风格模仿冲突修复（v3.0 未单独处理，留待后续）
-- [x] P2-3 脚本测试（v3.0.0：30 个 unittest + CI；v4.1 增至 47）
+- [x] P2-3 脚本测试（v3.0.0：30 个 unittest + CI；v4.1 增至 52）
+
+### v4.3.0 新增（2026-10-28）
+
+- [x] 插件 workspace 注册表：AI 用 `pwd` 决定并写 `~/.dsh/teacher-workspaces.json`
+- [x] 插件不再硬编码本机路径，legacy `workspaceRoot` 仍兼容
+- [x] `dsh_host` 检测未注册 workspace，返回 `dsh-plugin-register-required`
+- [x] fallback 端口由 AI 自选，`course_server --port 0` 打印实际端口
 
 ### v4.2.0 新增（2026-10-28）
 
@@ -149,6 +156,8 @@ AI 每次加载都要啃完整份文件，但每次只用其中一小部分。�
 - [x] `course-server` 降级为兼容模式，不默认静默启动
 - [x] 课件/目录顶部栏新增 `← 返回对话`
 - [x] 新增 `scripts/verify_page.py`：build 后验文件完整性 + HTTP 200，PASS 才发链接
+- [x] 新增 `scripts/dsh_register.py`：AI 用 `pwd` 注册 workspace，插件只服务注册根
+- [x] 插件去硬编码路径；`course_server --port 0` 由 AI 找空闲端口
 - [x] 课程目录去重：忽略无 HTML 旧 `.md`，同单元保留最新课件
 - [x] 返回逻辑：opener → referrer → DSH 根路径；独立服务/`file://` 隐藏
 
@@ -173,7 +182,7 @@ AI 每次加载都要啃完整份文件，但每次只用其中一小部分。�
 - [x] **补讲/练习/复习页**：决策落成独立 HTML，不重写原课件
 - [x] **图示 DSL**：flow / layers / timeline / cycle / compare / bars
 - [x] **动效与交互**：主题切换、翻转卡、提示折叠、代码复制、SVG 动画
-- [x] **测试/CI**：47 个 unittest
+- [x] **测试/CI**：52 个 unittest
 
 ### v3.0.0 新增（2026-10-28）
 
@@ -205,7 +214,8 @@ AI 每次加载都要啃完整份文件，但每次只用其中一小部分。�
 | **v4.0.0** | **HTML-first + 图示/交互** | **分步 deck、答题卡服务、补讲/练习/复习页、图示 DSL、动效** | ✅ 已发布 |
 | **v4.1.0** | **DSH 宿主集成** | **宿主探测、`/teacher` 插件、可直接打开链接、路径前缀 API** | ✅ 已发布 |
 | **v4.1.1** | **远程链接修复** | **根相对 `/teacher/...`、`--public-base`、不再发 127.0.0.1** | ✅ 已发布 |
-| **v4.2.0** | **返回对话 + DSH 引导 + 验活** | **返回按钮、安装提醒、8765 临时、verify_page、目录去重** | ✅ 当前版本 |
+| **v4.2.0** | **返回对话 + DSH 引导 + 验活** | **返回按钮、安装提醒、8765 临时、verify_page、workspace注册、端口自选、目录去重** | ✅ 已发布 |
+| **v4.3.0** | **AI 管理 workspace/端口** | **注册表、去硬编码、register-required、port 0** | ✅ 当前版本 |
 
 ---
 

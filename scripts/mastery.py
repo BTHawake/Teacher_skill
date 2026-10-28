@@ -30,7 +30,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-VERSION = "4.2.0"
+VERSION = "4.3.0"
 LEVEL_LABELS = {0: "未掌握", 1: "模糊", 2: "基本掌握", 3: "掌握"}
 REVIEW_INTERVALS = [1, 3, 7, 14, 30]
 

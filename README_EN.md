@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
-[![Version](https://img.shields.io/badge/version-4.2.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.3.0-blue)]()
 [![Subjects](https://img.shields.io/badge/subjects-10-orange)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
 [![Multi-Platform](https://img.shields.io/badge/Multi--Platform-6%20Platforms-orange)]()
@@ -17,7 +17,7 @@ Throw a document, book, or course at an AI — it will teach you like a patient 
 
 It never assumes you "should know" something, never jumps to the answer, and never skips a step. After each concept, it checks that you truly understand before moving on.
 
-**v4.2 core capabilities**: **HTML is the classroom**. Each unit becomes a step-by-step HTML deck (explanations, diagrams, animations, answer card). Users read the deck and answer in chat; the AI reads the submitted answer card, then generates a reteach / practice / review page or the next unit based on mastery. **DSH host detection** prefers the same-origin `/teacher/` plugin, so remote DSH access needs no 8765 forwarding; otherwise it falls back to a standalone course server. 10 subjects ship with executable micro-flows (knowledge / methodology), plus a 5-minute lightweight micro-lesson.
+**v4.3 core capabilities**: **HTML is the classroom**. Each unit becomes a step-by-step HTML deck (explanations, diagrams, animations, answer card). Users read the deck and answer in chat; the AI reads the submitted answer card, then generates a reteach / practice / review page or the next unit based on mastery. **DSH host detection** prefers the same-origin `/teacher/` plugin, so remote DSH access needs no 8765 forwarding; otherwise it falls back to a standalone course server. The AI decides and registers the workspace; fallback ports are AI-chosen. 10 subjects ship with executable micro-flows (knowledge / methodology), plus a 5-minute lightweight micro-lesson.
 
 Now supports **10 subjects**: Math, Programming, Chinese, English, Physics, Chemistry, History, Biology, AI, and Feynman Thinking.
 
@@ -356,7 +356,7 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 
 ---
 
-## v4.2 Changelog
+## v4.3 Changelog
 
 | Capability | Description |
 |------------|-------------|
@@ -364,6 +364,8 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | **DSH install reminder** | Detect DSH without `/teacher`; prompt to install, mark 8765 as temporary |
 | **Temporary port** | `course-server` is a compatibility fallback, not silently started |
 | **Post-build check** | `verify_page.py` checks file integrity + HTTP 200 + title; only PASS links are sent |
+| **Workspace registry** | AI decides with `pwd` and writes `~/.dsh/teacher-workspaces.json`; plugin serves only registered roots |
+| **Port** | Plugin has no separate port; fallback lets AI pick a free port (`--port 0`) |
 | **Directory dedupe** | Ignore old `.md` without HTML; keep only the newest deck per unit |
 | **Remote links** | Send root-relative `/teacher/...`; never send a `127.0.0.1` absolute URL to remote users |
 | **Absolute URL** | `dsh_host.py --public-base https://host/...` builds `public_url`; `local_url` is local-only |
@@ -377,7 +379,7 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | **Animations & interactions** | Theme toggle, flip cards, hints, code copy, SVG animations |
 | **Adaptive mastery** | Lv0-Lv3; advance only after first check + variant |
 | **Review schedule** | 1/3/7/14/30 days; when >5 items are due, process only 3 this session |
-| **Tests / CI** | 47 unit tests; GitHub Actions on Python 3.9-3.12 |
+| **Tests / CI** | 52 unit tests; GitHub Actions on Python 3.9-3.12 |
 
 ---
 
@@ -439,7 +441,7 @@ Style analysis covers six dimensions: sentence structure, vocabulary, teaching p
 
 > **Dependency**: Video subtitle extraction requires `yt-dlp` (`pip install yt-dlp`). If the video lacks subtitles, please upload subtitle files directly.
 
-### HTML Classroom (v4.2)
+### HTML Classroom (v4.3)
 
 Each unit becomes a **step-by-step HTML deck** containing explanations, diagrams, animations, examples and exercises. Chat only sends navigation and feedback.
 
@@ -450,8 +452,15 @@ python scripts/dsh_host.py --course "Computer Organization" --workspace "Teacher
 ```
 
 - `dsh-plugin` → same-origin `/teacher/`, no 8765 forwarding
+- `dsh-plugin-register-required` → AI registers the current workspace with `dsh_register.py --workspace-root "$PWD"`
 - `dsh-plugin-missing` → remind the user to install the plugin; 8765 is only a temporary fallback and waits for confirmation
 - `course-server` → temporary/compatibility mode; start or reuse the standalone server
+
+Register the AI-chosen workspace:
+
+```bash
+python scripts/dsh_register.py --workspace-root "$PWD" --json
+```
 
 ```
 讲义/Computer Organization/
@@ -576,7 +585,7 @@ See `ref/cross-disciplinary-thinking.md` for details.
 
 ```
 teacher-skills/
-├── SKILL.md                              # Main entry: HTML-first orchestrator (v4.2)
+├── SKILL.md                              # Main entry: HTML-first orchestrator (v4.3)
 ├── README.md                             # Chinese documentation
 ├── README_EN.md                          # English documentation
 ├── LICENSE                               # MIT License
@@ -598,24 +607,26 @@ teacher-skills/
 │   └── correction_handler.md           # Conversation correction handler
 │
 ├── scripts/
-│   ├── lesson_html.py                   # Markdown → step deck + answer card + index (v4.2)
-│   ├── dsh_host.py                      # Probe DSH plugin / course server / free port (v4.2)
-│   ├── verify_page.py                   # Verify file integrity + HTTP reachability (v4.2)
-│   ├── course_server.py                 # Local course server + answer submission (v4.2)
-│   ├── mastery.py                       # Mastery / review / next-step engine (v4.2)
+│   ├── lesson_html.py                   # Markdown → step deck + answer card + index (v4.3)
+│   ├── dsh_host.py                      # Probe DSH plugin / course server / free port (v4.3)
+│   ├── dsh_register.py                  # Register AI-chosen workspace root (v4.3)
+│   ├── verify_page.py                   # Verify file integrity + HTTP reachability (v4.3)
+│   ├── course_server.py                 # Local course server + answer submission (v4.3)
+│   ├── mastery.py                       # Mastery / review / next-step engine (v4.3)
 │   ├── generate_quiz.py                # Quiz generator
 │   ├── evaluate_answer.py              # Answer evaluation
 │   ├── track_progress.py               # Progress tracker
-│   ├── learning_state.py               # Learning state persistence (v4.2)
+│   ├── learning_state.py               # Learning state persistence (v4.3)
 │   ├── reverse_distill.py              # Reverse-distillation tool (v2.1)
 │   ├── extract_subtitle.py             # Subtitle extraction
 │   └── skill_writer.py                 # Teaching profile manager
 │
-├── tests/                              # Unit tests (v4.2)
+├── tests/                              # Unit tests (v4.3)
 │   ├── test_lesson_html.py
 │   ├── test_mastery.py
 │   ├── test_course_server.py
 │   ├── test_dsh_host.py
+│   ├── test_dsh_register.py
 │   └── test_verify_page.py
 │
 ├── examples/                           # Buildable demo deck / exercises
@@ -632,11 +643,11 @@ teacher-skills/
 │   ├── teaching-techniques.md            # Plain language techniques + analogy library
 │   ├── question-templates.md             # Question template library
 │   ├── teaching-sop.md                   # Teaching SOP (HTML-first Phase 3)
-│   ├── dsh-hosting.md                    # DSH host selection: plugin/server/static (v4.2)
-│   ├── html-first-teaching.md            # HTML-first teaching method (v4.2)
-│   ├── adaptive-teaching.md              # Adaptive teaching engine (v4.2)
-│   ├── html-lessons.md                   # HTML deck/diagram/answer-card guide (v4.2)
-│   ├── subject-plugins.md                # Subject plugin protocol (v4.2)
+│   ├── dsh-hosting.md                    # DSH host selection: plugin/server/static (v4.3)
+│   ├── html-first-teaching.md            # HTML-first teaching method (v4.3)
+│   ├── adaptive-teaching.md              # Adaptive teaching engine (v4.3)
+│   ├── html-lessons.md                   # HTML deck/diagram/answer-card guide (v4.3)
+│   ├── subject-plugins.md                # Subject plugin protocol (v4.3)
 │   ├── management-commands.md            # Management commands
 │   ├── verification-framework.md         # Teaching verification framework
 │   ├── extraction-framework.md           # Unified extraction framework (v2.4)

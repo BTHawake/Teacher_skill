@@ -36,6 +36,35 @@ class DshHostTests(unittest.TestCase):
         self.assertFalse(result["temporary"])
         self.assertEqual(result["recommended"], "dsh-plugin")
 
+    def test_requires_registration_for_unknown_workspace(self):
+        def fake_get(url, timeout=1.0):
+            if url.endswith("/teacher/api/health"):
+                return {
+                    "ok": True,
+                    "plugin": "dsh-teacher-skill",
+                    "prefix": "/teacher",
+                    "configured": True,
+                    "workspaces": ["其他工作区"],
+                }
+            return None
+
+        with mock.patch.object(dsh_host, "_json_get", fake_get):
+            result = dsh_host.detect("计算机组成原理", "TeacherSkillEditor", "http://127.0.0.1:3080")
+        self.assertEqual(result["mode"], "dsh-plugin-register-required")
+        self.assertTrue(result["register_required"])
+        self.assertIn("dsh_register.py", result["register_command"])
+        self.assertIn("还没注册", result["chat_hint"])
+
+    def test_legacy_plugin_without_workspace_list_still_works(self):
+        def fake_get(url, timeout=1.0):
+            if url.endswith("/teacher/api/health"):
+                return {"ok": True, "plugin": "dsh-teacher-skill", "prefix": "/teacher"}
+            return None
+
+        with mock.patch.object(dsh_host, "_json_get", fake_get):
+            result = dsh_host.detect("计算机组成原理", "TeacherSkillEditor", "http://127.0.0.1:3080")
+        self.assertEqual(result["mode"], "dsh-plugin")
+
     def test_uses_running_course_server(self):
         def fake_get(url, timeout=1.0):
             if url.endswith("/api/health"):

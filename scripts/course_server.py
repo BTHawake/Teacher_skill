@@ -166,7 +166,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="讲义根目录（默认：讲义）")
     parser.add_argument("--course-dir", default=None, help="课程子目录名（默认取课程名）")
     parser.add_argument("--host", default="127.0.0.1", help="监听地址（默认仅本机）")
-    parser.add_argument("--port", type=int, default=8765, help="端口（默认 8765）")
+    parser.add_argument("--port", type=int, default=8765, help="端口（默认 8765；0 = 自动找空闲端口）")
     return parser
 
 
@@ -188,8 +188,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except OSError as exc:
         print("[error] 无法监听 %s:%s：%s" % (args.host, args.port, exc), file=sys.stderr)
         return 2
+    actual_port = server.server_address[1]
     print("teacher.skill v%s 课件服务已启动" % VERSION)
-    print("地址：http://%s:%d/" % (args.host, args.port))
+    print("地址：http://%s:%d/" % (args.host, actual_port))
     print("答案文件：%s" % (answer_dir / "latest.json"))
     print("按 Ctrl+C 停止。")
     try:

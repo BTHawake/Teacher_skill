@@ -177,6 +177,36 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "",
     for base in dsh_bases:
         health = _json_get(urljoin(base + "/", "teacher/api/health"))
         if health and health.get("plugin") == PLUGIN_NAME and health.get("ok"):
+            workspaces = health.get("workspaces")
+            needs_register = False
+            if isinstance(workspaces, list) and workspace not in workspaces:
+                # Legacy installs may still use a single workspaceRoot and list no workspaces.
+                if not (health.get("configured") and not workspaces):
+                    needs_register = True
+            if needs_register:
+                result = {
+                    "mode": "dsh-plugin-register-required",
+                    "reason": "DSH plugin is mounted, but this workspace is not registered.",
+                    "dsh_url": base,
+                    "workspace": workspace,
+                    "course": course,
+                    "api_path": health.get("prefix", "/teacher") + "/api/answers",
+                    "link": relative_link,
+                    "local_url": base + relative_link,
+                    "plugin": health,
+                    "install_required": False,
+                    "register_required": True,
+                    "temporary": False,
+                    "recommended": "register-workspace",
+                    "register_command": (
+                        'python scripts/dsh_register.py --workspace-root "$PWD" --workspace "%s"'
+                        % workspace
+                    ),
+                    "chat_hint": "插件已安装，但当前 workspace 还没注册；先运行 dsh_register.py，再生成链接。",
+                }
+                if public_base:
+                    result["public_url"] = public_base + relative_link
+                return result
             result = {
                 "mode": "dsh-plugin",
                 "reason": "DSH teacher plugin is already mounted; use the same DSH origin.",
@@ -188,6 +218,7 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "",
                 "local_url": base + relative_link,
                 "plugin": health,
                 "install_required": False,
+                "register_required": False,
                 "temporary": False,
                 "recommended": "dsh-plugin",
             }

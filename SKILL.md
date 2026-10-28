@@ -10,7 +10,7 @@ description: >
   当用户说"教我"、"帮我学"、"帮我理解"、"模仿XX老师的教学风格"或上传资料要求学习时触发。
   不要在用户只是问一个简单问题时触发——只在涉及系统性学习/教学时激活。
 argument-hint: "[topic or paste materials]"
-version: 4.2.0
+version: 4.3.0
 user-invocable: true
 allowed-tools: Read, Write, Edit, Bash, WebSearch, WebFetch
 triggers:
@@ -406,9 +406,18 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 | mode | 做法 | 发给用户 |
 |------|------|----------|
 | `dsh-plugin` | 用 `/teacher/` 同源挂载 | 根相对链接 `/teacher/...` |
+| `dsh-plugin-register-required` | 插件已装但 workspace 没注册 | 先 `dsh_register.py`，再 build |
 | `dsh-plugin-missing` | DSH 可达但插件没挂；**先提醒安装**，不静默回退 | 说明 8765 只是临时方案；等用户确认 |
 | `course-server`（已有） | 复用现有服务 | 现有 `http://...` 链接（临时模式） |
 | `course-server`（需启动） | 启动课程服务 | `http://127.0.0.1:<port>/...`（临时模式） |
+
+**注册工作区：**
+
+```bash
+python scripts/dsh_register.py --workspace-root "$PWD" --workspace "<workspace>"
+```
+
+这是 AI 自己判断 workspace 后的动作；插件只服务注册过的根。旧版插件没有 `workspaces` 字段时，按 legacy `workspaceRoot` 继续用。
 
 **优先级**：DSH 插件 > 已有课程服务 > 新开端口。远程 DSH 首选插件，避免 8765 转发。
 
@@ -465,10 +474,12 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
 不要“生成完就把链接发出去”。每次都要：
 
 1. 先用 `pwd` 确认当前是课程工作区；路径含 `Teacher_skill` 或 `.dsh/skills` 时不要在这里生成
-2. 用绝对路径输出：`--output-dir "$PWD/讲义"`
-3. build 后看它打印的 `html_path`
-4. 用 `dsh_host.py --json` 得到 `link` 和本地验证地址
-5. 验文件 + 验 HTTP：
+2. 先跑 `dsh_host.py --json`：
+   - `dsh-plugin` → 继续
+   - `dsh-plugin-register-required` → 先 `dsh_register.py --workspace-root "$PWD" --workspace "<workspace>"`
+   - `dsh-plugin-missing` → 先提醒安装，不静默用 8765
+3. 用绝对路径输出：`--output-dir "$PWD/讲义"`；build 后看它打印的 `html_path`
+4. 验文件 + 验 HTTP：
 
 ```bash
 python scripts/verify_page.py \
@@ -476,8 +487,8 @@ python scripts/verify_page.py \
   --url "http://127.0.0.1:3080/teacher/TeacherSkillEditor/计算机组成原理/unit-04.html"
 ```
 
-6. 只有输出 `RESULT: PASS` 才发链接；`FAIL` 时先修路径/服务，不要发坏链接
-7. 有浏览器工具时，再打开一次并截图确认不是空白页
+5. 只有输出 `RESULT: PASS` 才发链接；`FAIL` 时先修路径/服务，不要发坏链接
+6. 有浏览器工具时，再打开一次并截图确认不是空白页
 
 独立 8765 模式把 `--url` 换成 `http://127.0.0.1:8765/...`。
 
@@ -590,6 +601,7 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 
 - `scripts/lesson_html.py` — **v4.2**：Markdown → 分步 HTML 课件 + 答题卡 + 课程目录
 - `scripts/dsh_host.py` — **v4.2**：探测 DSH 插件/课程服务/空闲端口，给出链接决策
+- `scripts/dsh_register.py` — **v4.2**：把 AI 判断的 workspace root 写入插件注册表
 - `scripts/verify_page.py` — **v4.2**：验收文件完整性与 HTTP 可打开性，输出 PASS/FAIL
 - `scripts/course_server.py` — **v4.2**：本地课件服务 + 答题卡提交写入 `answers/latest.json`
 - `scripts/mastery.py` — **v4.2**：掌握度记录、复习调度、下一步建议、薄弱点练习目标
@@ -639,3 +651,4 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 | **v4.1.0** | **DSH 宿主探测：优先同源 `/teacher` 插件，其次独立课程服务，自动给可直接打开的链接；插件独立仓库 dsh-Teacher-skill；答题卡支持 `--api-path` / workspace / token** |
 | **v4.1.1** | **远程链接修复：默认发根相对 `/teacher/...`，不再发 `127.0.0.1` 绝对地址；需要绝对 URL 时用 `--public-base` 生成 `public_url`** |
 | **v4.2.0** | **DSH 缺插件先提醒安装、8765 标注临时回退；网页顶部栏新增 `← 返回对话`（opener → referrer → DSH 根路径）** |
+| **v4.3.0** | **workspace 注册表：AI 用 pwd 判断并写 `~/.dsh/teacher-workspaces.json`；插件去硬编码；fallback 端口由 AI 自选（`--port 0`）** |

@@ -17,7 +17,7 @@ triggers:
   - "怎么判断自己真的理解了"
 subject: feynman
 type: methodology
-version: 4.2.0
+version: 4.3.0
 ---
 
 # 费曼思维教学策略（反蒸馏版）

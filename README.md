@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
-[![Version](https://img.shields.io/badge/version-4.2.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.3.0-blue)]()
 [![Subjects](https://img.shields.io/badge/subjects-10-orange)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
 [![Multi-Platform](https://img.shields.io/badge/Multi--Platform-6%20Platforms-orange)]()
@@ -18,7 +18,7 @@
 
 不假设你"应该知道"什么，不急于给答案，不跳过任何一步。每个知识点讲完都会确认你真的懂了，然后再往下走。
 
-**v4.2 核心能力**：**HTML 是主课堂**。每单元生成一个分步 HTML 课件（讲解 + 图示 + 动画 + 答题卡），用户看 HTML、在聊天里答题；AI 读取答题卡提交，按掌握度生成补讲/练习/复习页或下一单元。新增 **DSH 宿主探测**：优先挂到 DSH 自己的 `/teacher/` 插件，远程访问不用转发 8765；没有插件时回退独立课程服务。10 个学科自带执行微流程，按知识型 / 方法论型分流；支持 5 分钟轻量微课。
+**v4.3 核心能力**：**HTML 是主课堂**。每单元生成一个分步 HTML 课件（讲解 + 图示 + 动画 + 答题卡），用户看 HTML、在聊天里答题；AI 读取答题卡提交，按掌握度生成补讲/练习/复习页或下一单元。新增 **DSH 宿主探测**：优先挂到 DSH 自己的 `/teacher/` 插件，远程访问不用转发 8765；没有插件时回退独立课程服务；workspace 由 AI 判断并注册，端口由 AI 自选。10 个学科自带执行微流程，按知识型 / 方法论型分流；支持 5 分钟轻量微课。
 
 现在支持 **10 个学科** 的专业教学策略：数学、编程、语文、英语、物理、化学、历史、生物、AI、费曼思维。说"我想学会巴菲特的思维方式"会自动搜索匹配 skill 并生成课程。
 
@@ -405,7 +405,7 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
    到目前为止能跟上吗？
 ```
 
-### v4.2 更新日志
+### v4.3 更新日志
 
 | 能力 | 说明 |
 |------|------|
@@ -413,6 +413,8 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 | **DSH 安装提醒** | 检测到 DSH 但缺插件时先提醒安装；8765 明确标注“临时回退” |
 | **临时端口** | `course-server` 降级为兼容模式，不再默认静默启动 |
 | **生成后验活** | `verify_page.py` 验文件完整性 + HTTP 200 + 标题；PASS 才发链接 |
+| **workspace 注册** | AI 用 `pwd` 判断，写 `~/.dsh/teacher-workspaces.json`；插件只服务注册根 |
+| **端口** | 插件无独立端口；fallback 才由 AI 找空闲端口（`--port 0`） |
 | **目录去重** | 忽略没有对应 HTML 的旧 `.md`；同一单元只保留最新课件 |
 | **远程链接** | 默认发根相对链接 `/teacher/...`，不再把 `127.0.0.1` 绝对地址发给远程用户 |
 | **绝对 URL** | `dsh_host.py --public-base https://host/...` 生成 `public_url`；`local_url` 只用于本机调试 |
@@ -426,7 +428,7 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 | **动效与交互** | 主题切换、翻转卡、提示折叠、代码复制、SVG 动画 |
 | **自适应掌握度** | Lv0-Lv3；首轮 + 变式都通过才推进 |
 | **复习调度** | 1/3/7/14/30 天；到期 >5 个时本次只做 3 个 |
-| **测试 / CI** | 47 个 unittest；GitHub Actions 跑 Python 3.9-3.12 |
+| **测试 / CI** | 52 个 unittest；GitHub Actions 跑 Python 3.9-3.12 |
 
 ---
 
@@ -515,7 +517,7 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 
 > 用户提供自己的资料时，以资料为主，skill 为辅助。
 
-### HTML 主课堂（v4.2）
+### HTML 主课堂（v4.3）
 
 每单元生成一个**分步 HTML 课件**，讲解、图示、动画、例题和练习都在里面；聊天只发导览和批改结果。
 
@@ -526,8 +528,15 @@ python scripts/dsh_host.py --course "计算机组成原理" --workspace "Teacher
 ```
 
 - 返回 `dsh-plugin` → 用同源 `/teacher/`，远程 DSH 不用转发 8765
+- 返回 `dsh-plugin-register-required` → AI 先运行 `dsh_register.py --workspace-root "$PWD"` 注册当前工作区
 - 返回 `dsh-plugin-missing` → 先提醒安装插件；8765 只是临时方案，等用户确认
 - 返回 `course-server` → 临时/兼容模式，启动或复用独立服务
+
+注册当前工作区（AI 用 `pwd` 判断）：
+
+```bash
+python scripts/dsh_register.py --workspace-root "$PWD" --json
+```
 
 ```
 讲义/
@@ -669,7 +678,7 @@ python scripts/mastery.py advise --state "teachers/课程/learning-state.json"
 
 ```
 teacher-skills/
-├── SKILL.md                              # 主入口：HTML-first 教学调度器（v4.2）
+├── SKILL.md                              # 主入口：HTML-first 教学调度器（v4.3）
 ├── README.md                             # 中文文档
 ├── README_EN.md                          # 英文文档
 ├── LICENSE                               # MIT 许可证
@@ -691,24 +700,26 @@ teacher-skills/
 │   └── correction_handler.md           # 对话纠正处理
 │
 ├── scripts/
-│   ├── lesson_html.py                   # Markdown → 分步 HTML 课件 + 答题卡 + 目录（v4.2）
-│   ├── dsh_host.py                      # 探测 DSH 插件/课程服务/空闲端口（v4.2）
-│   ├── verify_page.py                   # 验文件完整性 + HTTP 可打开性（v4.2）
-│   ├── course_server.py                 # 本地课件服务 + 答题卡提交（v4.2）
-│   ├── mastery.py                       # 掌握度/复习/下一步建议引擎（v4.2）
+│   ├── lesson_html.py                   # Markdown → 分步 HTML 课件 + 答题卡 + 目录（v4.3）
+│   ├── dsh_host.py                      # 探测 DSH 插件/课程服务/空闲端口（v4.3）
+│   ├── dsh_register.py                  # 把 AI 判断的 workspace 写入注册表（v4.3）
+│   ├── verify_page.py                   # 验文件完整性 + HTTP 可打开性（v4.3）
+│   ├── course_server.py                 # 本地课件服务 + 答题卡提交（v4.3）
+│   ├── mastery.py                       # 掌握度/复习/下一步建议引擎（v4.3）
 │   ├── generate_quiz.py                # 练习题生成（按等级/题型）
 │   ├── evaluate_answer.py              # 答案评估 + 反馈模板
 │   ├── track_progress.py               # 学习进度追踪
-│   ├── learning_state.py               # 学习状态持久化管理（v4.2）
+│   ├── learning_state.py               # 学习状态持久化管理（v4.3）
 │   ├── reverse_distill.py              # 反蒸馏分析工具（v2.1）
 │   ├── extract_subtitle.py             # 视频/字幕提取工具
 │   └── skill_writer.py                 # 教学档案文件管理器
 │
-├── tests/                              # 单元测试（v4.2）
+├── tests/                              # 单元测试（v4.3）
 │   ├── test_lesson_html.py
 │   ├── test_mastery.py
 │   ├── test_course_server.py
 │   ├── test_dsh_host.py
+│   ├── test_dsh_register.py
 │   └── test_verify_page.py
 │
 ├── examples/                           # 可构建的示例课件/练习
@@ -725,11 +736,11 @@ teacher-skills/
 │   ├── teaching-techniques.md            # 通俗化讲解技巧 + 类比库 + 表达DNA
 │   ├── question-templates.md             # 出题模板库
 │   ├── teaching-sop.md                   # 教学 SOP（Phase 0-5 + HTML-first Phase 3）
-│   ├── dsh-hosting.md                    # DSH 宿主选择：插件/独立服务/静态（v4.2）
-│   ├── html-first-teaching.md            # HTML-first 教学法（v4.2）
-│   ├── adaptive-teaching.md              # 自适应教学引擎（v4.2）
-│   ├── html-lessons.md                   # HTML 课件格式/图示/答题卡指南（v4.2）
-│   ├── subject-plugins.md                # 学科插件协议（v4.2）
+│   ├── dsh-hosting.md                    # DSH 宿主选择：插件/独立服务/静态（v4.3）
+│   ├── html-first-teaching.md            # HTML-first 教学法（v4.3）
+│   ├── adaptive-teaching.md              # 自适应教学引擎（v4.3）
+│   ├── html-lessons.md                   # HTML 课件格式/图示/答题卡指南（v4.3）
+│   ├── subject-plugins.md                # 学科插件协议（v4.3）
 │   ├── management-commands.md            # 管理命令表
 │   ├── verification-framework.md         # 教学效果验证框架
 │   ├── extraction-framework.md           # 统一提取框架（四维提取+三重验证）
