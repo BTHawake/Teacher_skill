@@ -1440,7 +1440,13 @@ QUIZ_JS = r"""
       var apiPath=card.dataset.apiPath||'';
       try{
         if(apiPath && location.protocol!=='file:'){
-          url=new URL(apiPath,location.href).href;
+          var current=location.pathname;
+          var marker=current.indexOf('/teacher/');
+          if(marker>=0){
+            url=current.slice(0,marker)+'/teacher/api/answers';
+          }else{
+            url=new URL(apiPath,location.href).href;
+          }
         }else if(location.protocol==='file:'){
           var base=card.dataset.serverUrl||'';
           if(base){url=base.replace(/\/$/,'')+'/api/answers';}

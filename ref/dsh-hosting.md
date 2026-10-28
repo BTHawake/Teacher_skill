@@ -103,6 +103,8 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 
 输出里的 `public_url` 才是远程可用的绝对地址；`local_url` 只用于本机调试。子路径场景还需要反代把 `/dsh/teacher/` 转到插件的 `/teacher/`。
 
+答题卡会自动按 `location.pathname` 里的 `/teacher/` 前缀推导 API；所以 `/dsh/teacher/...` 会提交到 `/dsh/teacher/api/answers`，不需要手改 `--api-path`。
+
 > `http://127.0.0.1:3080/...` 只对本机浏览器有效，**不要发给远程用户**。
 
 ---
