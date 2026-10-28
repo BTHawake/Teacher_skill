@@ -1,34 +1,40 @@
 ---
 name: adaptive-teaching
 description: >
-  teacher.skill v3.0 自适应教学引擎：根据课后练习与掌握度，
-  决定重讲、继续练习、到期复习或推进下一单元。
-version: 3.0.0
+  teacher.skill v4.0 自适应教学引擎：根据 HTML 答题卡提交与掌握度，
+  决定补讲、继续练习、到期复习或推进下一单元。
+version: 4.0.0
 ---
 
-# 自适应教学引擎（v3.0）
+# 自适应教学引擎（v4.0）
 
 > 目标：让 AI 老师不是"讲完就往前走"，而是根据用户真实做题表现调整下一步。
 >
 > 核心原则：**先诊断，再决定；不凭感觉推进，也不无限刷题。**
+>
+> v4.0：每一步决策都落成一个 HTML 页面（补讲/练习/复习/下一单元），而不是只在聊天里说。
 
 ## 1. 闭环
 
 ```
-讲课
+生成 HTML 课件
   ↓
-课后练习（默认 3 题：概念 / 应用 / 迁移）
+用户阅读 + 做题（HTML 答题卡）
   ↓
-批改 + 记录（scripts/mastery.py record）
+提交到 answers/latest.json
   ↓
-读建议（scripts/mastery.py advise）
+AI 读取 + 批改
+  ↓
+记录掌握度（mastery.py record）
+  ↓
+读建议（mastery.py advise）
   ↓
 ┌──────────────┬──────────────┬──────────────┬──────────────┐
 │ 重讲          │ 继续练习      │ 到期复习      │ 推进下一单元  │
-│ 换表征/拆小步  │ 变式/错题同型  │ 快速回顾+1题  │ 进入下一单元  │
+│ 补讲页 HTML   │ 练习页 HTML   │ 复习页 HTML   │ 下一单元 deck │
 └──────────────┴──────────────┴──────────────┴──────────────┘
   ↓
-更新 HTML 讲义/练习 + 复习目录 + 掌握度
+更新 index + 掌握度
 ```
 
 ## 2. 掌握度等级
@@ -72,7 +78,7 @@ python scripts/mastery.py record \
 ```json
 {
   "mastery": {
-    "version": "3.0.0",
+    "version": "4.0.0",
     "concepts": {
       "位权展开": {
         "name": "位权展开",
@@ -123,6 +129,15 @@ python scripts/mastery.py record \
 | 6 | 全部 Lv3 且 `advance_ready` | **advance** | 不浪费时间在已掌握内容上 |
 | 7 | 有 Lv3 但未 `advance_ready` | **practice（variant）** | 补齐变式验证 |
 | 8 | 没有任何记录 | **start** | 先完成一个单元的教学与检测 |
+
+**动作要落成页面：**
+
+| 建议 | 生成 |
+|------|------|
+| `reteach` | `reteach-XX-{薄弱点}.html`（换表征 + 2 道变式） |
+| `practice` | `practice-XX-{主题}.html`（3 道针对性题） |
+| `review` | `review-XX-{主题}.html`（快速回顾 + 1 道检测） |
+| `advance` | 下一单元 `unit-XX-{标题}.html` |
 
 脚本输出示例：
 
@@ -238,18 +253,30 @@ python scripts/mastery.py practice --state "teachers/{课程}/learning-state.jso
 | 用户说"直接讲下一个" | 尊重用户，但记录"跳过验证"，并在下次复习优先补 |
 | 用户说"我懂了，别问了" | 停止检测，改为"讲完后给 1 道自愿题"；不要强行考试 |
 
-## 9. 与 HTML 讲义的配合
+## 9. 与 HTML 课件的配合
 
-- 每单元讲义：`讲义/{课程}/unit-XX-{标题}.html`
-- 练习卷：`讲义/{课程}/practice-XX-{标题}.html`（frontmatter `kind: practice`）
-- `index.html` 会显示：
+- 单元主课件：`讲义/{课程}/unit-XX-{标题}.html`（`kind: lesson`, `layout: deck`）
+- 练习页：`practice-XX-{标题}.html`（`kind: practice`）
+- 补讲页：`reteach-XX-{标题}.html`（`kind: reteach`）
+- 复习页：`review-XX-{标题}.html`（`kind: review`）
+- 答题卡提交：`answers/latest.json`
+- `index.html` 显示：
   - 单元总数 / 已完成 / 待复习 / 薄弱知识点
   - 到期复习清单（最多展示 8 项）
   - 薄弱知识点（Lv0/Lv1）
   - AI 建议下一步（来自 `mastery.next_action`）
-  - 讲义与练习卷列表，可按状态筛选/搜索
-- 生成练习卷时，答案默认折叠；打印时自动展开
-- 掌握度变化后运行 `lesson_html.py index` 刷新目录即可，不必重建讲义
+  - 主课件 / 练习 / 补讲 / 复习页列表，可筛选/搜索
+- 答案默认折叠；打印时展开
+- 掌握度变化后运行 `lesson_html.py index` 刷新目录即可，不必重建课件
+
+### 用户说“答好了”时的最短路径
+
+1. `cat "讲义/{课程}/answers/latest.json"`
+2. 逐题对照答案 + 解析批改
+3. `mastery.py record ...`
+4. `mastery.py advise ...`
+5. 生成对应的补讲/练习/复习/下一单元 HTML
+6. 聊天只发链接 + 1-2 句导览
 
 ## 10. 维护与边界
 

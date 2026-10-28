@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
-[![Version](https://img.shields.io/badge/version-3.0.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.0.0-blue)]()
 [![Subjects](https://img.shields.io/badge/subjects-10-orange)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
 [![Multi-Platform](https://img.shields.io/badge/Multi--Platform-6%20Platforms-orange)]()
@@ -17,7 +17,7 @@ Throw a document, book, or course at an AI — it will teach you like a patient 
 
 It never assumes you "should know" something, never jumps to the answer, and never skips a step. After each concept, it checks that you truly understand before moving on.
 
-**v3.0 core capabilities**: After every unit, the AI teacher generates a self-contained **HTML lesson + exercise sheet** and maintains a course index. Based on exercise results and mastery (Lv0-Lv3), it decides whether to **re-teach, keep practicing, review, or advance**. Advancing requires both a first-pass check and a new-scenario variant. 10 subjects now ship with executable micro-flows, split into **knowledge / methodology** paths, plus a 5-minute lightweight mode.
+**v4.0 core capabilities**: **HTML is the classroom**. Each unit becomes a step-by-step HTML deck (explanations, diagrams, animations, answer card). Users read the deck and answer in chat; the AI reads the submitted answer card, then generates a reteach / practice / review page or the next unit based on mastery. 10 subjects ship with executable micro-flows (knowledge / methodology), plus a 5-minute lightweight micro-lesson.
 
 Now supports **10 subjects**: Math, Programming, Chinese, English, Physics, Chemistry, History, Biology, AI, and Feynman Thinking.
 
@@ -141,7 +141,7 @@ Notes:
 
 - DSH ignores extra frontmatter such as `allowed-tools` / `triggers`, but reads `name` / `description`
 - Web tools are `web_search` / `web_fetch`; the pre-lesson search rule is platform-agnostic
-- Open HTML lessons directly in a browser, or serve them locally if `file://` is restricted
+- Open HTML decks directly in a browser, or serve them locally if `file://` is restricted
 
 ### TRAE
 
@@ -172,7 +172,7 @@ In chat, reference with `#teacher`.
 - Git 2.0+ (for installing/updating via `git clone` / `git pull`)
 - Claude Pro/Max subscription or Anthropic API Key (Claude Code)
 - OpenAI API Key (Codex CLI)
-- Python 3.9+ (required for HTML lessons, the mastery engine and progress scripts; not needed for chat-only use)
+- Python 3.9+ (required for HTML decks, the answer server, the mastery engine and progress scripts; not needed for chat-only use)
 
 ---
 
@@ -192,40 +192,60 @@ You can also specify a topic directly:
 /teacher machine learning
 ```
 
-### v3.0 Learning Loop
+### v4.0 Classroom: HTML teaches, chat answers
 
 ```
-Diagnose → Teach unit → 3 exercises → Record mastery → Decide
-                                                       ├─ Re-teach
-                                                       ├─ Practice more
-                                                       ├─ Review due items
-                                                       └─ Advance
+Chat diagnosis → Generate unit HTML deck → User studies in HTML
+                                            ↓
+                         HTML answer card → submit to answers/latest.json
+                                            ↓
+                         User says "done" in chat → AI reads & grades
+                                            ↓
+              Generate: reteach / practice / review page / next unit
 ```
 
-After each unit, the AI saves the lesson, exercises and answers as:
+Chat has only four jobs: **diagnose, answer questions, grade, decide**. Explanations, diagrams, animations, examples and exercises live in HTML; the AI does not repeat them in chat.
 
-```
-讲义/{course}/unit-XX-{title}.html
-```
+Start the local course server:
 
-and updates `讲义/{course}/index.html`. The index shows progress, due reviews, weak concepts and the **AI's next step**.
-
-A typical post-lesson exchange:
-
-```
-❯ Unit complete. Try 3 questions first: concept, application, transfer.
-
-❯ (answers)
-
-   ✅ First check passed. Now one new-scenario variant —
-   ❯ (answers)
-
-   ✅ Variant passed too. Mastery recorded as Lv3.
-   📄 Saved: 讲义/Computer Organization/unit-04-进位计数制.html
-   📌 Next review: 2026-11-04
+```bash
+python scripts/course_server.py --course "Computer Organization" --port 8765
+# open http://127.0.0.1:8765/
 ```
 
-If the first check or the variant fails, the AI does not advance: it re-teaches with another representation, gives a same-type variation, or schedules review for tomorrow.
+Build a unit deck:
+
+```bash
+python scripts/lesson_html.py build --course "Computer Organization" \
+  --file "讲义/Computer Organization/unit-04.md" \
+  --state "teachers/Computer Organization/learning-state.json" \
+  --server-url "http://127.0.0.1:8765"
+```
+
+Typical exchange:
+
+```
+❯ Unit 4 deck is ready (7 steps):
+   http://127.0.0.1:8765/unit-04.html
+   Read steps 2-4; submit the exercises and tell me "done".
+
+❯ done
+
+   Q1 ✅
+   Q2 ❌ missed the final verification step.
+   I added a worked example to the reteach page: [link]
+   Try the 2 variants and send me your answers.
+```
+
+Advancing requires both the first check and a new-scenario variant. If not, the AI generates a reteach/practice page instead of rewriting the original deck.
+
+### How vivid can the page be?
+
+- Step transitions, progress bar, visited-step checkmarks, arrow-key navigation
+- Flip cards, collapsible hints, one-click code copy, light/dark theme
+- Animated flow arrows, layer-by-layer reveal, timeline entrance, rotating cycle arrows
+- Answer-card submit state, answered count, print/PDF
+- Diagram DSL: `flow` / `layers` / `timeline` / `cycle` / `compare` / `bars`; complex diagrams via SVG
 
 ### Imitating a Teacher's Style
 
@@ -261,11 +281,14 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | `/teacher reset` | Reset teaching session | `/teacher reset` |
 | `/teacher level` | Manually set ability level | `/teacher level advanced` |
 | `/teacher skip` | Skip current unit | `/teacher skip` |
-| `/teacher review` | Open the lesson index and review due items (v3.0) | `/teacher review` |
-| `/teacher quick` | Lightweight mode: one concept + one example + one check | `/teacher quick what is place value` |
-| `/teacher practice` | Generate 3 targeted exercises from weak points | `/teacher practice` |
+| `/teacher review` | Open the lesson index and review due items (v4.0) | `/teacher review` |
+| `/teacher quick` | Lightweight mode: one-page HTML micro-lesson | `/teacher quick what is place value` |
+| `/teacher serve` | Start the local course/answer server (v4.0) | `/teacher serve` |
+| `/teacher answer` | Read `answers/latest.json`, grade and record mastery (v4.0) | `/teacher answer` |
+| `/teacher practice` | Generate 3 targeted exercises as an HTML page | `/teacher practice` |
+| `/teacher reteach` | Generate a reteach page for the current weak point (v4.0) | `/teacher reteach place value` |
 | `/teacher mastery` | Show Lv0-Lv3 mastery and next review | `/teacher mastery` |
-| `/teacher export` | Export current unit as HTML | `/teacher export` |
+| `/teacher export` | Export current unit as an HTML deck | `/teacher export` |
 | `/teacher rebuild` | Rebuild all HTML for current course | `/teacher rebuild` |
 | `/teacher html on/off` | Toggle auto HTML after each unit | `/teacher html off` |
 | `/teacher quit` | End current session | `/teacher quit` |
@@ -278,19 +301,19 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 
 ---
 
-## v3.0 Changelog
+## v4.0 Changelog
 
 | Capability | Description |
 |------------|-------------|
-| **HTML lessons** | One self-contained HTML per unit under `讲义/{course}/`; auto-maintained `index.html` |
-| **Exercise sheets** | 3 targeted questions for weak points, same folder as lessons, collapsed answers |
-| **Adaptive mastery** | Lv0-Lv3; records exercise results and decides re-teach / practice / review / advance |
-| **Advance gate** | First check + new-scenario variant must both pass |
+| **HTML-first** | HTML is the classroom; chat only diagnoses / answers / grades / decides |
+| **Step deck** | One deck per unit: progress bar, visited steps, keyboard navigation |
+| **Answer card + server** | Users submit; AI reads `answers/latest.json` and grades |
+| **Reteach/practice/review pages** | Decisions become separate HTML pages; original deck stays stable |
+| **Diagram DSL** | flow / layers / timeline / cycle / compare / bars + raw SVG |
+| **Animations & interactions** | Theme toggle, flip cards, hints, code copy, SVG animations |
+| **Adaptive mastery** | Lv0-Lv3; advance only after first check + variant |
 | **Review schedule** | 1/3/7/14/30 days; when >5 items are due, process only 3 this session |
-| **Subject plugins** | 10 subjects with `knowledge / methodology` types + 5-step micro-flows |
-| **Lightweight mode** | One concept + one example + one check |
-| **Search fallback** | Continue with a "not web-verified" label when the network is unavailable |
-| **Tests / CI** | 30 unit tests; GitHub Actions on Python 3.9-3.12 |
+| **Tests / CI** | 36 unit tests; GitHub Actions on Python 3.9-3.12 |
 
 ---
 
@@ -352,35 +375,44 @@ Style analysis covers six dimensions: sentence structure, vocabulary, teaching p
 
 > **Dependency**: Video subtitle extraction requires `yt-dlp` (`pip install yt-dlp`). If the video lacks subtitles, please upload subtitle files directly.
 
-### HTML Lessons & Exercise Sheets (v3.0)
+### HTML Classroom (v4.0)
 
-After each unit, the teacher writes the lesson, exercises and answers into a self-contained HTML page under `讲义/{course}/` and updates a course index:
+Each unit becomes a **step-by-step HTML deck** containing explanations, diagrams, animations, examples and exercises. Chat only sends navigation and feedback.
 
 ```
-讲义/计算机组成原理/
+讲义/Computer Organization/
 ├── index.html                 # progress, due reviews, weak points, AI next step
-├── unit-04-进位计数制.html     # lesson + exercises + collapsed answers
-└── practice-04-错题变式.html   # exercise sheet (kind: practice)
+├── unit-04-进位计数制.html     # step deck + diagrams + answer card
+├── practice-04-错题变式.html   # practice page
+├── reteach-04-位权.html        # reteach page
+└── answers/latest.json         # answer-card submission (AI reads it)
 ```
 
-- Offline single file; no CDN, web fonts, or analytics
-- Answers collapsed by default; "expand all" button; print/PDF friendly
-- Auto TOC, callouts, tables, code blocks, SVG diagrams
-- Index shows unit count, completed, due reviews, weak concepts, due list and AI next step
+- Step navigation, progress bar, visited-step checkmarks, arrow keys
+- Flip cards, hints, code copy, light/dark theme
+- Animated flow arrows, layer reveal, timeline entrance, cycle arrows
+- Answer card: submit to local server, or copy the submission text into chat
+- Offline single file; print/PDF friendly
 
-![HTML lesson index](docs/html-lessons-index.png)
+![HTML deck: diagrams and interactions](docs/html-first-cycle.png)
 
-![HTML lesson page](docs/html-lessons-page.png)
+![HTML deck: answer card](docs/html-first-quiz.png)
 
 ```bash
+# Start the course/answer server
+python scripts/course_server.py --course "Computer Organization" --port 8765
+
+# Build a deck
 python scripts/lesson_html.py build --course "Computer Organization" \
   --file "讲义/Computer Organization/unit-04.md" \
-  --state "teachers/Computer Organization/learning-state.json"
+  --state "teachers/Computer Organization/learning-state.json" \
+  --server-url "http://127.0.0.1:8765"
 ```
 
-See [`ref/html-lessons.md`](ref/html-lessons.md).
+Diagram DSL: `flow` / `layers` / `timeline` / `cycle` / `compare` / `bars`; complex diagrams via SVG.
+See [`ref/html-first-teaching.md`](ref/html-first-teaching.md) and [`ref/html-lessons.md`](ref/html-lessons.md).
 
-### Adaptive Teaching (v3.0)
+### Adaptive Teaching (v4.0)
 
 After each unit, run 3 exercises (concept / application / transfer), record mastery, then decide:
 
@@ -391,8 +423,10 @@ After each unit, run 3 exercises (concept / application / transfer), record mast
 | Lv2 Basically mastered | First check passed | 1 new-scenario variant |
 | Lv3 Mastered | First check + variant passed | Advance + spaced review |
 
+- **Answer source**: read `讲义/{course}/answers/latest.json` first; fall back to answers pasted in chat
 - **Advance gate**: first check + variant must both pass; doing one original question is not enough
 - **Decision order**: recent fail → re-teach; partial → practice; due → review (>5 due: do 3, defer the rest); Lv2 → variant; all Lv3 → advance
+- **Actions become pages**: reteach / practice / review page / next unit deck
 - **Autonomy**: within-unit adjustments are automatic; changing units/route requires confirmation
 - **Review**: 1/3/7/14/30 days; when >5 items are due, process only 3 this session
 
@@ -404,15 +438,15 @@ python scripts/mastery.py advise --state "teachers/course/learning-state.json"
 
 See [`ref/adaptive-teaching.md`](ref/adaptive-teaching.md).
 
-### Subject Plugins (v3.0)
+### Subject Plugins (v4.0)
 
 Each `subjects/*.md` carries `type: knowledge | methodology` and a 5-step micro-flow. The main SKILL dispatches; the subject file defines how that subject is taught. See [`ref/subject-plugins.md`](ref/subject-plugins.md).
 
-### Lightweight Mode (v3.0)
+### Lightweight Mode (v4.0)
 
-"Explain it briefly / five minutes / `/teacher quick`" → one concept + one example + one check, without the full Phase 0-2. Offer to expand into a full unit afterwards.
+"Explain it briefly / five minutes / `/teacher quick`" → generate a one-page HTML micro-lesson (one concept + one example + one check), without the full Phase 0-2. Offer to expand into a full unit afterwards.
 
-### Pre-Lesson Search Verification (v3.0 revision)
+### Pre-Lesson Search Verification (v4.0 revision)
 
 Before each new unit, verify at least 2 authoritative sources with the platform's web tools. If every source is unreachable:
 
@@ -462,7 +496,7 @@ See `ref/cross-disciplinary-thinking.md` for details.
 
 ```
 teacher-skills/
-├── SKILL.md                              # Main entry: teaching orchestrator (v3.0)
+├── SKILL.md                              # Main entry: HTML-first orchestrator (v4.0)
 ├── README.md                             # Chinese documentation
 ├── README_EN.md                          # English documentation
 ├── LICENSE                               # MIT License
@@ -471,8 +505,10 @@ teacher-skills/
 │   └── skill-config.json                 # Project configuration
 │
 ├── prompts/
-│   ├── lesson_template.md               # Lesson Markdown template (v3.0)
-│   ├── practice_template.md             # Exercise-sheet template (v3.0)
+│   ├── lesson_template.md               # Step-deck template (v4.0)
+│   ├── practice_template.md             # Practice page template (v4.0)
+│   ├── reteach_template.md              # Reteach page template (v4.0)
+│   ├── review_template.md               # Review page template (v4.0)
 │   ├── intake.md                       # Teacher info intake (3 questions + tag library)
 │   ├── style-extractor.md              # Teaching style 6-dimension extraction guide
 │   ├── style-profile-template.md       # Teaching style profile template
@@ -482,37 +518,40 @@ teacher-skills/
 │   └── correction_handler.md           # Conversation correction handler
 │
 ├── scripts/
-│   ├── lesson_html.py                   # Markdown → self-contained HTML + index (v3.0)
-│   ├── mastery.py                       # Mastery / review / next-step engine (v3.0)
+│   ├── lesson_html.py                   # Markdown → step deck + answer card + index (v4.0)
+│   ├── course_server.py                 # Local course server + answer submission (v4.0)
+│   ├── mastery.py                       # Mastery / review / next-step engine (v4.0)
 │   ├── generate_quiz.py                # Quiz generator
 │   ├── evaluate_answer.py              # Answer evaluation
 │   ├── track_progress.py               # Progress tracker
-│   ├── learning_state.py               # Learning state persistence (v3.0)
+│   ├── learning_state.py               # Learning state persistence (v4.0)
 │   ├── reverse_distill.py              # Reverse-distillation tool (v2.1)
 │   ├── extract_subtitle.py             # Subtitle extraction
 │   └── skill_writer.py                 # Teaching profile manager
 │
-├── tests/                              # Unit tests (v3.0)
+├── tests/                              # Unit tests (v4.0)
 │   ├── test_lesson_html.py
-│   └── test_mastery.py
+│   ├── test_mastery.py
+│   └── test_course_server.py
 │
-├── examples/                           # Buildable demo lesson / exercise sheet
+├── examples/                           # Buildable demo deck / exercises
 │   ├── lesson-demo.md
 │   └── practice-demo.md
 │
 ├── docs/                               # Documentation screenshots
-│   ├── html-lessons-index.png
-│   └── html-lessons-page.png
+│   ├── html-first-cycle.png
+│   └── html-first-quiz.png
 │
 ├── ref/
 │   ├── learner-diagnosis.md              # Student assessment guide
 │   ├── teaching-strategies.md            # Three-level teaching strategies
 │   ├── teaching-techniques.md            # Plain language techniques + analogy library
 │   ├── question-templates.md             # Question template library
-│   ├── teaching-sop.md                   # Teaching SOP (Phase 0-5 + 3.7/3.8)
-│   ├── adaptive-teaching.md              # Adaptive teaching engine (v3.0)
-│   ├── html-lessons.md                   # HTML lesson export guide (v3.0)
-│   ├── subject-plugins.md                # Subject plugin protocol (v3.0)
+│   ├── teaching-sop.md                   # Teaching SOP (HTML-first Phase 3)
+│   ├── html-first-teaching.md            # HTML-first teaching method (v4.0)
+│   ├── adaptive-teaching.md              # Adaptive teaching engine (v4.0)
+│   ├── html-lessons.md                   # HTML deck/diagram/answer-card guide (v4.0)
+│   ├── subject-plugins.md                # Subject plugin protocol (v4.0)
 │   ├── management-commands.md            # Management commands
 │   ├── verification-framework.md         # Teaching verification framework
 │   ├── extraction-framework.md           # Unified extraction framework (v2.4)
@@ -529,10 +568,10 @@ teacher-skills/
 │   └── trae-teacher.md                   # TRAE platform adapter
 │
 ├── .github/workflows/
-│   └── ci.yml                            # Unit tests + compile checks (v3.0)
+│   └── ci.yml                            # Unit tests + compile checks (v4.0)
 │
 └── subjects/
-    ├── _template-SKILL.md                # Subject skill template (reusable, v3.0 micro-flow)
+    ├── _template-SKILL.md                # Subject skill template (reusable, v4.0 micro-flow)
     ├── math-teacher-SKILL.md             # Math teaching strategy
     ├── programming-teacher-SKILL.md      # Programming teaching strategy
     ├── chinese-teacher-SKILL.md          # Chinese teaching strategy
@@ -562,7 +601,7 @@ teacher-skills/
 | AI / AI时代 | `subjects/ai-teacher-SKILL.md` | LLM fundamentals, Prompt engineering, Agents, AI ethics |
 | Feynman Thinking (reverse-distilled) | `subjects/feynman-teacher-SKILL.md` | Don't fool yourself, naming≠understanding, concrete thinking, deep play |
 
-> Since v3.0, every subject file carries `type: knowledge | methodology` metadata and a 5-step micro-flow. Copy `_template-SKILL.md` when adding a subject.
+> Since v4.0, every subject file carries `type: knowledge | methodology` metadata and a 5-step micro-flow. Copy `_template-SKILL.md` when adding a subject.
 
 ## Creating New Subjects
 
@@ -580,7 +619,7 @@ Edit `your-subject-SKILL.md` with your subject's unique teaching strategies, com
 
 ### Do I need Python?
 
-Not for chat-only use. HTML lessons, the mastery engine and progress scripts require Python 3.9+.
+Not for chat-only use. HTML decks, the answer server, the mastery engine and progress scripts require Python 3.9+.
 
 ### Where are lessons saved?
 
@@ -589,7 +628,18 @@ Under the workspace root where you started the AI:
 ```
 讲义/Computer Organization/unit-04-进位计数制.html
 讲义/Computer Organization/index.html
+讲义/Computer Organization/answers/latest.json
 ```
+
+### How do I submit answers?
+
+Start the local server:
+
+```bash
+python scripts/course_server.py --course "Computer Organization" --port 8765
+```
+
+Open `http://127.0.0.1:8765/`, answer in the deck's answer card, click "submit", then tell the AI "done" in chat. The AI reads `answers/latest.json` and grades. Without the server, click "copy submission" and paste it into chat.
 
 ### How do I review?
 
@@ -601,7 +651,7 @@ Lv0 Not mastered / Lv1 Vague / Lv2 Basically mastered / Lv3 Mastered. A first-ch
 
 ### Is my data uploaded?
 
-No. Learning state, lessons and exercises stay local. `teachers/`, `讲义/` and `.dsh-meow/` are excluded in `.gitignore`.
+No. Learning state, decks and answer files stay local. `teachers/`, `讲义/` and `.dsh-meow/` are excluded in `.gitignore`.
 
 ### Which formats are supported?
 

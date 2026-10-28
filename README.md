@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
-[![Version](https://img.shields.io/badge/version-3.0.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.0.0-blue)]()
 [![Subjects](https://img.shields.io/badge/subjects-10-orange)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
 [![Multi-Platform](https://img.shields.io/badge/Multi--Platform-6%20Platforms-orange)]()
@@ -18,7 +18,7 @@
 
 不假设你"应该知道"什么，不急于给答案，不跳过任何一步。每个知识点讲完都会确认你真的懂了，然后再往下走。
 
-**v3.0 核心能力**：每个单元讲完，自动生成可离线复习的 **HTML 讲义 + 练习卷**，并维护一个课程目录页；AI 老师根据课后练习和掌握度（Lv0-Lv3）决定**重讲、继续练习、到期复习还是推进下一单元**；首轮检测 + 换场景变式都通过才推进。10 个学科自带执行微流程，按**知识型 / 方法论型**分流；新增 5 分钟「轻量启动」模式。
+**v4.0 核心能力**：**HTML 是主课堂**。每单元生成一个分步 HTML 课件（讲解 + 图示 + 动画 + 答题卡），用户看 HTML、在聊天里答题；AI 读取答题卡提交，按掌握度生成补讲/练习/复习页或下一单元。10 个学科自带执行微流程，按知识型 / 方法论型分流；支持 5 分钟轻量微课。
 
 现在支持 **10 个学科** 的专业教学策略：数学、编程、语文、英语、物理、化学、历史、生物、AI、费曼思维。说"我想学会巴菲特的思维方式"会自动搜索匹配 skill 并生成课程。
 
@@ -142,7 +142,7 @@ git -C "$HOME\.dsh\skills\teacher" pull --ff-only
 
 - DSH 忽略 `allowed-tools` / `triggers` 等额外 frontmatter，但会读取 `name` / `description`
 - 联网工具是 `web_search` / `web_fetch`；课前搜索规则已改为平台无关
-- HTML 讲义用浏览器直接打开即可；部分工具限制 `file://`，可双击文件或用本地静态服务器
+- HTML 课件用浏览器直接打开即可；部分工具限制 `file://`，可双击文件或用本地服务
 
 ### TRAE
 
@@ -173,7 +173,7 @@ priority: 2
 - Git 2.0+（用 `git clone` / `git pull` 安装或更新时需要）
 - Claude Pro/Max 订阅或 Anthropic API Key（Claude Code）
 - OpenAI API Key（Codex CLI）
-- Python 3.9+（HTML 讲义、掌握度引擎与进度脚本需要；只聊天可不用）
+- Python 3.9+（HTML 课件、答题服务、掌握度引擎与进度脚本需要；只聊天可不用）
 
 ---
 
@@ -193,40 +193,60 @@ priority: 2
 /teacher 机器学习
 ```
 
-### v3.0 学习闭环
+### v4.0 课堂形态：HTML 讲课，聊天答题
 
 ```
-诊断 → 逐单元讲 → 3 道课后练习 → 记录掌握度 → 决策
-                                              ├─ 重讲
-                                              ├─ 继续练习
-                                              ├─ 到期复习
-                                              └─ 推进下一单元
+聊天诊断 → 生成第 1 单元 HTML 课件 → 用户看 HTML 学习
+                                      ↓
+                          HTML 答题卡 → 提交到 answers/latest.json
+                                      ↓
+                          聊天里说“答好了” → AI 读取并批改
+                                      ↓
+                    按掌握度生成：补讲页 / 练习页 / 复习页 / 下一单元
 ```
 
-每完成一个单元，AI 会把讲义、练习和答案保存为：
+聊天只负责四件事：**诊断、答疑、批改、决策**。讲解正文、图示、动画、例题、练习都在 HTML 里，AI 不会在聊天里再讲一遍。
 
-```
-讲义/{课程}/unit-XX-{标题}.html
-```
+启动本地课件服务：
 
-并更新 `讲义/{课程}/index.html`；目录页会显示进度、到期复习、薄弱知识点和 **AI 建议下一步**。
-
-一次典型的课后对话：
-
-```
-❯ 这个单元讲完了，先做 3 道题：概念辨析、应用、迁移。
-
-❯ （作答）
-
-   ✅ 首轮通过。再做一道换场景变式题——
-   ❯ （作答）
-
-   ✅ 变式也通过，掌握度记为 Lv3。
-   📄 已生成：讲义/计算机组成原理/unit-04-进位计数制.html
-   📌 下次复习：2026-11-04
+```bash
+python scripts/course_server.py --course "计算机组成原理" --port 8765
+# 浏览器打开 http://127.0.0.1:8765/
 ```
 
-如果首轮或变式没过，AI 不会直接推进：它会按错误类型换讲法、出同型变式，或把复习排到明天。
+生成第 4 单元课件：
+
+```bash
+python scripts/lesson_html.py build --course "计算机组成原理" \
+  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --state "teachers/计算机组成原理/learning-state.json" \
+  --server-url "http://127.0.0.1:8765"
+```
+
+一次典型对话：
+
+```
+❯ 第 4 单元课件已生成（共 7 步）：
+   http://127.0.0.1:8765/unit-04-进位计数制.html
+   先看第 2-4 步；做完练习点“提交答案”，回我“答好了”。
+
+❯ 答好了
+
+   Q1 ✅
+   Q2 ❌ 漏了最后一步验算（步骤遗漏）。
+   补讲页第 3 步有一个同型例子：[链接]
+   看完做 2 道变式，再回我。
+```
+
+首轮 + 换场景变式都通过才推进；没过就生成补讲/练习页，不重写原课件。
+
+### 网页能有多生动
+
+- 分步切换、进度条、已读步骤勾选、键盘 ← →
+- 翻卡、折叠提示、代码一键复制、浅色/深色主题
+- 流程图箭头流动、层次图逐层点亮、时间线入场、循环图旋转箭头
+- 答题卡提交状态、已答计数、打印/PDF
+- 图示语法：`flow` / `layers` / `timeline` / `cycle` / `compare` / `bars`，复杂图用 SVG
 
 ### 模仿名师风格
 
@@ -261,11 +281,11 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 | `/teacher reset` | 重置学习会话 | `/teacher reset` |
 | `/teacher level` | 手动调整能力等级 | `/teacher level advanced` |
 | `/teacher skip` | 跳过当前单元 | `/teacher skip` |
-| `/teacher review` | 打开讲义目录，回顾到期复习项（v3.0） | `/teacher review` |
+| `/teacher review` | 打开讲义目录，回顾到期复习项（v4.0） | `/teacher review` |
 | `/teacher quick` | 轻量模式：一个概念 + 一个例子 + 一道检测 | `/teacher quick 什么是位权` |
-| `/teacher practice` | 按薄弱点生成 3 道练习并导出练习卷 | `/teacher practice` |
+| `/teacher practice` | 按薄弱点生成 3 道练习并导出练习页 | `/teacher practice` |
 | `/teacher mastery` | 查看 Lv0-Lv3 掌握度与下次复习 | `/teacher mastery` |
-| `/teacher export` | 把当前单元导出为 HTML 讲义 | `/teacher export` |
+| `/teacher export` | 把当前单元导出为 HTML 课件 | `/teacher export` |
 | `/teacher rebuild` | 重建当前课程全部 HTML | `/teacher rebuild` |
 | `/teacher html on/off` | 开关每单元自动生成 HTML | `/teacher html off` |
 | `/teacher quit` | 结束当前学习 | `/teacher quit` |
@@ -327,19 +347,19 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
    到目前为止能跟上吗？
 ```
 
-### v3.0 更新日志
+### v4.0 更新日志
 
 | 能力 | 说明 |
 |------|------|
-| **HTML 讲义** | 每单元生成自包含 HTML，保存到 `讲义/{课程}/`，自动维护 `index.html` |
-| **练习卷** | 针对薄弱点生成 3 题，与讲义同目录，答案折叠 |
-| **自适应掌握度** | Lv0-Lv3，记录练习结果，决定重讲/练习/复习/推进 |
-| **推进门槛** | 首轮 + 换场景变式都通过 |
+| **HTML-first** | HTML 是主课堂；聊天只做诊断/答疑/批改/决策 |
+| **分步 deck** | 每单元一个分步课件，进度条、已读勾选、键盘导航 |
+| **答题卡 + 本地服务** | 用户提交，AI 读取 `answers/latest.json` 批改 |
+| **补讲/练习/复习页** | 决策落成独立 HTML，不重写原课件 |
+| **图示 DSL** | flow / layers / timeline / cycle / compare / bars + 原始 SVG |
+| **动效与交互** | 主题切换、翻转卡、提示折叠、代码复制、SVG 动画 |
+| **自适应掌握度** | Lv0-Lv3；首轮 + 变式都通过才推进 |
 | **复习调度** | 1/3/7/14/30 天；到期 >5 个时本次只做 3 个 |
-| **学科插件** | 10 个学科带 `knowledge / methodology` 类型 + 5 步微流程 |
-| **轻量启动** | 一个概念 + 一个例子 + 一道检测 |
-| **搜索降级** | 网络不可用时可继续，标注「未联网核验」 |
-| **测试 / CI** | 30 个 unittest；GitHub Actions 跑 Python 3.9-3.12 |
+| **测试 / CI** | 36 个 unittest；GitHub Actions 跑 Python 3.9-3.12 |
 
 ---
 
@@ -428,49 +448,59 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 
 > 用户提供自己的资料时，以资料为主，skill 为辅助。
 
-### HTML 讲义与练习卷（v3.0）
+### HTML 主课堂（v4.0）
 
-每教完一个单元，AI 老师把**刚讲过的内容 + 练习 + 答案**整理成一份自包含 HTML，保存到 `讲义/{课程}/`，并更新课程目录：
+每单元生成一个**分步 HTML 课件**，讲解、图示、动画、例题和练习都在里面；聊天只发导览和批改结果。
 
 ```
 讲义/
 └── 计算机组成原理/
-    ├── index.html                    # 进度、到期复习、薄弱点、AI 建议、搜索
-    ├── unit-04-进位计数制.html        # 讲义 + 练习 + 折叠答案
-    └── practice-04-错题变式.html      # 练习卷（kind: practice）
+    ├── index.html                     # 进度、到期复习、薄弱点、AI 建议、搜索
+    ├── unit-04-进位计数制.html         # 分步 deck：讲义 + 图示 + 答题卡
+    ├── practice-04-错题变式.html       # 练习页
+    ├── reteach-04-位权.html            # 补讲页
+    └── answers/latest.json             # 答题卡提交（AI 读取）
 ```
 
-- 单文件、离线可用，不加载 CDN/字体/统计脚本
-- 答案默认折叠，页面顶部可「展开全部答案」
-- 右侧自动生成目录，支持打印 / 另存 PDF
-- 目录页显示：单元总数、已完成、待复习、薄弱知识点、到期清单、AI 建议下一步
-- 支持概念框、例子、警告、技巧、小结、公式、考点等 callout，以及表格/代码/SVG 示意图
+- 分步导航、进度条、已读勾选、键盘 ← →
+- 翻卡、提示折叠、代码复制、浅色/深色主题
+- 流程图箭头流动、层次图逐层点亮、时间线入场、循环图箭头
+- 答题卡：提交到本地服务，或复制提交文本发到聊天
+- 离线单文件、不加载 CDN；可打印 / 另存 PDF
 
-![HTML 讲义目录](docs/html-lessons-index.png)
+![HTML 课件：图示与交互](docs/html-first-cycle.png)
 
-![HTML 讲义页面](docs/html-lessons-page.png)
+![HTML 课件：答题卡](docs/html-first-quiz.png)
 
 ```bash
+# 启动课件/答题服务
+python scripts/course_server.py --course "计算机组成原理" --port 8765
+
+# 生成课件
 python scripts/lesson_html.py build --course "计算机组成原理" \
   --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
-  --state "teachers/计算机组成原理/learning-state.json"
+  --state "teachers/计算机组成原理/learning-state.json" \
+  --server-url "http://127.0.0.1:8765"
 ```
 
-详见 [`ref/html-lessons.md`](ref/html-lessons.md)。
+图示 DSL：`flow` / `layers` / `timeline` / `cycle` / `compare` / `bars`；复杂图用 `svg` 代码块。
+详见 [`ref/html-first-teaching.md`](ref/html-first-teaching.md) 与 [`ref/html-lessons.md`](ref/html-lessons.md)。
 
-### 自适应教学（v3.0）
+### 自适应教学（v4.0）
 
 不是"讲完就往前走"。每单元练 3 题（概念 / 应用 / 迁移），记录掌握度，再决定下一步：
 
 | 等级 | 判定证据 | 默认动作 |
 |------|---------|---------|
-| Lv0 未掌握 | 答错、说不清 | 换讲法重讲 |
+| Lv0 未掌握 | 答错、说不清 | 换讲法重讲（补讲页） |
 | Lv1 模糊 | 部分正确、需提示 | 2 道针对性练习 |
 | Lv2 基本掌握 | 首轮检测通过 | 1 道换场景变式 |
 | Lv3 掌握 | 首轮 + 变式通过 | 推进 + 间隔复习 |
 
+- **答案来源**：优先读 `讲义/{课程}/answers/latest.json`，其次聊天里粘贴的答案
 - **推进门槛**：首轮 + 变式都通过；只做对原题不算
 - **决策顺序**：最近 fail → 重讲；partial → 练习；到期 → 复习（>5 个时只做 3 个，其余顺延）；Lv2 → 变式；全部 Lv3 → 推进
+- **动作落成页面**：补讲页 / 练习页 / 复习页 / 下一单元
 - **自主权**：单元内自动调整；跨单元、改路线先确认
 - **复习**：1/3/7/14/30 天递增；到期 >5 个时本次只处理 3 个
 
@@ -482,7 +512,7 @@ python scripts/mastery.py advise --state "teachers/课程/learning-state.json"
 
 详见 [`ref/adaptive-teaching.md`](ref/adaptive-teaching.md)。
 
-### 学科插件（v3.0）
+### 学科插件（v4.0）
 
 每个 `subjects/*.md` 自带 `type: knowledge | methodology` 和 5 步执行微流程：
 
@@ -493,9 +523,9 @@ python scripts/mastery.py advise --state "teachers/课程/learning-state.json"
 
 主 SKILL 只负责调度，学科文件负责"这一科具体怎么教"。详见 [`ref/subject-plugins.md`](ref/subject-plugins.md)。
 
-### 轻量启动（v3.0）
+### 轻量启动（v4.0）
 
-"简单讲讲 / 五分钟讲一下 / `/teacher quick`" → 1 个概念 + 1 个例子 + 1 道检测，不跑完整 Phase 0-2。结束后问"要不要扩成完整单元"，不强行加课。
+"简单讲讲 / 五分钟讲一下 / `/teacher quick`" → 直接生成一张单页 HTML 微课（概念 + 例子 + 1 题），不跑完整 Phase 0-2。结束后问"要不要扩成完整单元"，不强行加课。
 
 ### 应试套路教学法（v2.8）
 
@@ -519,7 +549,7 @@ python scripts/mastery.py advise --state "teachers/课程/learning-state.json"
 
 讲解后先做"心智演练"（在脑子里过一遍），再答题，再变式。不是"做对了就过"，是"换场景还能做对"才算掌握。
 
-### 课前搜索验证（v3.0 修订）
+### 课前搜索验证（v4.0 修订）
 
 每个新单元开讲前，优先用当前平台可用的联网工具核对至少 2 个权威来源。如果全部网络源不可达：
 
@@ -556,7 +586,7 @@ python scripts/mastery.py advise --state "teachers/课程/learning-state.json"
 
 ```
 teacher-skills/
-├── SKILL.md                              # 主入口：教学调度器（v3.0）
+├── SKILL.md                              # 主入口：HTML-first 教学调度器（v4.0）
 ├── README.md                             # 中文文档
 ├── README_EN.md                          # 英文文档
 ├── LICENSE                               # MIT 许可证
@@ -565,8 +595,10 @@ teacher-skills/
 │   └── skill-config.json                 # 项目配置（HTML/自适应/学科）
 │
 ├── prompts/
-│   ├── lesson_template.md                 # 单元讲义 Markdown 模板（v3.0）
-│   ├── practice_template.md               # 练习卷 Markdown 模板（v3.0）
+│   ├── lesson_template.md                 # 分步课件 Markdown 模板（v4.0）
+│   ├── practice_template.md               # 练习页模板（v4.0）
+│   ├── reteach_template.md                # 补讲页模板（v4.0）
+│   ├── review_template.md                 # 复习页模板（v4.0）
 │   ├── intake.md                       # 教师信息录入（3问+教学标签库）
 │   ├── style-extractor.md              # 教学风格六维度提取指南
 │   ├── style-profile-template.md       # 教学风格档案模板
@@ -576,37 +608,40 @@ teacher-skills/
 │   └── correction_handler.md           # 对话纠正处理
 │
 ├── scripts/
-│   ├── lesson_html.py                   # Markdown → 自包含 HTML + 课程目录（v3.0）
-│   ├── mastery.py                       # 掌握度/复习/下一步建议引擎（v3.0）
+│   ├── lesson_html.py                   # Markdown → 分步 HTML 课件 + 答题卡 + 目录（v4.0）
+│   ├── course_server.py                 # 本地课件服务 + 答题卡提交（v4.0）
+│   ├── mastery.py                       # 掌握度/复习/下一步建议引擎（v4.0）
 │   ├── generate_quiz.py                # 练习题生成（按等级/题型）
 │   ├── evaluate_answer.py              # 答案评估 + 反馈模板
 │   ├── track_progress.py               # 学习进度追踪
-│   ├── learning_state.py               # 学习状态持久化管理（v3.0）
+│   ├── learning_state.py               # 学习状态持久化管理（v4.0）
 │   ├── reverse_distill.py              # 反蒸馏分析工具（v2.1）
 │   ├── extract_subtitle.py             # 视频/字幕提取工具
 │   └── skill_writer.py                 # 教学档案文件管理器
 │
-├── tests/                              # 单元测试（v3.0）
+├── tests/                              # 单元测试（v4.0）
 │   ├── test_lesson_html.py
-│   └── test_mastery.py
+│   ├── test_mastery.py
+│   └── test_course_server.py
 │
-├── examples/                           # 可构建的示例讲义/练习卷
+├── examples/                           # 可构建的示例课件/练习
 │   ├── lesson-demo.md
 │   └── practice-demo.md
 │
 ├── docs/                               # 文档截图
-│   ├── html-lessons-index.png
-│   └── html-lessons-page.png
+│   ├── html-first-cycle.png
+│   └── html-first-quiz.png
 │
 ├── ref/
 │   ├── learner-diagnosis.md              # 学情诊断指南
 │   ├── teaching-strategies.md            # 三级教学策略（强/中/弱）
 │   ├── teaching-techniques.md            # 通俗化讲解技巧 + 类比库 + 表达DNA
 │   ├── question-templates.md             # 出题模板库
-│   ├── teaching-sop.md                   # 教学 SOP（主流程 Phase 0-5 + 3.7/3.8）
-│   ├── adaptive-teaching.md              # 自适应教学引擎（v3.0）
-│   ├── html-lessons.md                   # HTML 讲义/练习导出指南（v3.0）
-│   ├── subject-plugins.md                # 学科插件协议（v3.0）
+│   ├── teaching-sop.md                   # 教学 SOP（Phase 0-5 + HTML-first Phase 3）
+│   ├── html-first-teaching.md            # HTML-first 教学法（v4.0）
+│   ├── adaptive-teaching.md              # 自适应教学引擎（v4.0）
+│   ├── html-lessons.md                   # HTML 课件格式/图示/答题卡指南（v4.0）
+│   ├── subject-plugins.md                # 学科插件协议（v4.0）
 │   ├── management-commands.md            # 管理命令表
 │   ├── verification-framework.md         # 教学效果验证框架
 │   ├── extraction-framework.md           # 统一提取框架（四维提取+三重验证）
@@ -623,10 +658,10 @@ teacher-skills/
 │   └── trae-teacher.md                   # TRAE 平台适配文件
 │
 ├── .github/workflows/
-│   └── ci.yml                            # 单元测试 + 编译检查（v3.0）
+│   └── ci.yml                            # 单元测试 + 编译检查（v4.0）
 │
 └── subjects/
-    ├── _template-SKILL.md                # 学科子Skill模板（含 v3.0 微流程）
+    ├── _template-SKILL.md                # 学科子Skill模板（含 v4.0 微流程）
     ├── math-teacher-SKILL.md             # 数学教学策略
     ├── programming-teacher-SKILL.md      # 编程教学策略
     ├── chinese-teacher-SKILL.md          # 语文教学策略
@@ -656,7 +691,7 @@ teacher-skills/
 | AI / 人工智能 | `subjects/ai-teacher-SKILL.md` | 大模型原理、Prompt 工程、Agent、工具链、AI 伦理 |
 | 费曼思维（反蒸馏） | `subjects/feynman-teacher-SKILL.md` | 反自欺、命名≠理解、具象化思考、深度游戏、科学思维 |
 
-> v3.0 起，所有学科文件都带 `type: knowledge | methodology` 元数据和 5 步执行微流程；扩展学科时照抄 `_template-SKILL.md` 的格式即可。
+> v4.0 起，所有学科文件都带 `type: knowledge | methodology` 元数据和 5 步执行微流程；扩展学科时照抄 `_template-SKILL.md` 的格式即可。
 
 ## 扩展学科
 
@@ -674,16 +709,27 @@ cp subjects/_template-SKILL.md subjects/your-subject-SKILL.md
 
 ### 需要装 Python 吗？
 
-只聊天不需要；HTML 讲义、掌握度引擎和进度脚本需要 Python 3.9+。
+只聊天不需要；HTML 课件、答题服务、掌握度引擎和进度脚本需要 Python 3.9+。
 
-### 讲义保存在哪里？
+### 课件保存在哪里？
 
 保存在你启动 AI 的工作区顶层的 `讲义/{课程}/`。例如：
 
 ```
 讲义/计算机组成原理/unit-04-进位计数制.html
 讲义/计算机组成原理/index.html
+讲义/计算机组成原理/answers/latest.json
 ```
+
+### 怎么提交答案？
+
+先启动服务：
+
+```bash
+python scripts/course_server.py --course "计算机组成原理" --port 8765
+```
+
+浏览器打开 `http://127.0.0.1:8765/`，在课件答题卡里作答，点“提交答案”；然后回聊天说“答好了”。AI 会读取 `answers/latest.json` 批改。没有启动服务时，点“复制提交文本”发到聊天即可。
 
 ### 怎么复习？
 
@@ -695,7 +741,7 @@ Lv0 未掌握 / Lv1 模糊 / Lv2 基本掌握 / Lv3 掌握。首轮检测通过�
 
 ### 数据会上传吗？
 
-不会。学习状态、讲义、练习都在本地；`teachers/`、`讲义/`、`.dsh-meow/` 已在 `.gitignore` 中排除。
+不会。学习状态、课件、答题文件都在本地；`teachers/`、`讲义/`、`.dsh-meow/` 已在 `.gitignore` 中排除。
 
 ### 支持哪些资料？
 

@@ -1,39 +1,37 @@
 ---
 name: html-lessons
 description: >
-  teacher.skill v3.0 HTML 讲义与练习导出指南：Markdown 格式、
-  callout、折叠答案、课程目录、学习状态映射与排错。
-version: 3.0.0
+  teacher.skill v4.0 HTML 课件指南：分步 deck、图示 DSL、
+  答题卡、本地提交服务、课程目录与排错。
+version: 4.0.0
 ---
 
-# HTML 讲义与练习导出
+# HTML 课件指南（v4.0）
 
-> 每教完一个单元，AI 老师把讲义、练习与答案写成 Markdown，再用一个脚本生成**不依赖网络**的单文件 HTML。
-> 课后复习、打印、做 PDF 都用这一份，不用翻聊天记录。
+> HTML 是主课堂。每单元一个分步课件，用户看 HTML 学习；
+> 聊天只做答疑、批改和下一步决策。
 
 ## 1. 目录结构
-
-默认输出到工作区顶层的 `讲义/`：
 
 ```
 讲义/
 └── 计算机组成原理/
-    ├── index.html                       # 课程目录 / 复习入口
-    ├── unit-04-进位计数制.md             # 源文件（可编辑）
-    ├── unit-04-进位计数制.html           # 自包含讲义
-    ├── practice-04-错题变式.md           # 练习卷（kind: practice）
-    └── practice-04-错题变式.html
+    ├── index.html                     # 课程地图 + 复习入口
+    ├── unit-04-进位计数制.md           # 源文件
+    ├── unit-04-进位计数制.html         # 分步 deck
+    ├── practice-04-错题变式.html       # 练习页
+    ├── reteach-04-位权.html            # 补讲页
+    ├── review-04-进制转换.html         # 复习页
+    └── answers/
+        ├── latest.json                # 最近一次答题卡提交
+        └── 4-20261028-114210.json     # 历史快照
 ```
 
-- 一个单元一个 HTML，上半部分是讲义，下半部分是练习
-- `index.html` 自动生成/更新，列出所有讲义与练习卷
-- 默认路径可用 `--output-dir` 修改；课程子目录可用 `--course-dir` 修改
+所有页面自包含（CSS/JS 内联），离线可打开。
 
 ## 2. Frontmatter
 
-每个 Markdown 开头必须有 `---` 包围的元数据：
-
-### 讲义（kind 省略或 lesson）
+### 单元主课件
 
 ```yaml
 ---
@@ -41,105 +39,82 @@ course: 计算机组成原理
 unit: 4
 title: 进位计数制
 date: 2026-10-28
-status: 已完成            # 已完成 / 进行中 / 待复习 / 待学
+status: 进行中
 kind: lesson
-tags: [进制, 位权, 转换]
+layout: deck
+tags: [进制, 位权]
 objectives:
-  - 理解基数与位权的关系
-  - 掌握二 / 八 / 十六进制互转
-review_at: 2026-11-04      # 下次复习日期，可选
-state_id: U4               # 对应 learning-state 的 id，可选但推荐
+  - 理解基数与位权
+  - 掌握二/八/十六进制互转
+state_id: U4
 sources:
   - 王道《计算机组成原理》第 1 章
-description: 从位权展开出发理解进制转换。  # 目录卡片摘要
+description: 从位权展开出发理解进制转换。
 ---
 ```
 
-### 练习卷
+### 练习 / 补讲 / 复习页
 
 ```yaml
 ---
 course: 计算机组成原理
 unit: 4
 title: 进位计数制·错题变式
-kind: practice
-parent_unit: 4             # 练习卷归到哪个单元（用于排序/链接）
+kind: practice      # practice | reteach | review
+layout: article     # 可选，默认 article
+parent_unit: 4
 date: 2026-10-28
 status: 待复习
-review_at: 2026-10-29
 state_id: U4
 tags: [变式, 错题]
 description: 针对「分组转换」概念混淆生成的 3 道题。
 ---
 ```
 
-必填：`course`、`unit`、`title`。其余可省略，脚本会从文件名推断 unit。
+必填：`course`、`unit`、`title`；`kind` 决定文件前缀与 index 标签。
 
-## 3. Markdown 语法
+## 3. 分步 deck
 
-支持常用 Markdown 子集，**不依赖任何外部库/网络**：
+`layout: deck` 时：
 
-| 语法 | 效果 |
-|------|------|
-| `## 标题` / `### 标题` | 正文标题，自动生成右侧目录 |
-| `**粗体**`、`*斜体*`、`~~删除~~`、`==高亮==` | 行内格式 |
-| `` `代码` `` | 行内代码 |
-| 围栏代码块 | 代码块（带语言标签） |
-| `| 表 | 表 |` | 表格 |
-| `- 列表` / `1. 列表` | 无序/有序列表（支持嵌套） |
-| `> 引用` | 引用块 |
-| `![alt](path)` | 图片（本地相对路径/URL） |
-| `[文字](url)` | 链接 |
-| `$r$` | 行内公式（衬线斜体） |
-| `---` | 分隔线 |
+- 每个 `## 二级标题` = 一个步骤
+- 自动生成「开始」页
+- 顶部进度条、步骤计数、已读计数
+- 侧边栏步骤导航；已读步骤打勾
+- 上一步/下一步、键盘 ← →、`#step-N` 深链
+- 打印时所有步骤展开
 
-### 代码块
+建议每单元 4-8 步：目标 → 概念 → 例子/推导 → 易错点 → 对比/图示 → 练习 → 小结。
 
-````text
-```python
-for i in range(3):
-    print(i)
-```
-````
+## 4. 交互组件
 
-### SVG 示意图
-
-````text
-```svg
-<svg ...>...</svg>
-```
-````
-
-只允许以 `<svg` 开头的内容原样嵌入；其他 HTML 会转义，防止意外脚本。
-
-## 4. Callout（重点框）
-
-用三冒号包裹：
+### 提示 / 先想一想
 
 ```text
-::: definition 基数
-一个进制允许使用的数字个数。
+::: hint 提示
+先想想：为什么取指阶段要先算 PC+1？
+:::
+
+::: think 先想一想
+如果 Cache 命中率变成 100%，平均访问时间怎么变？
 :::
 ```
 
-支持的类型：
+默认折叠，点击展开。
 
-| 类型 | 用途 | 默认标题 |
-|------|------|---------|
-| `definition` | 定义/术语 | 定义 |
-| `example` | 例子 | 例子 |
-| `warning` | 易错点/警告 | 注意 |
-| `tip` | 技巧/捷径 | 技巧 |
-| `note` | 补充说明 | 补充 |
-| `summary` | 单元小结 | 小结 |
-| `keypoint` | 关键要点 | 要点 |
-| `formula` | 公式 | 公式 |
-| `practice` | 练习提示 | 练习 |
-| `exam` | 考点 | 考点 |
-| `source` | 来源 | 来源 |
-| `answer` | 参考答案（默认折叠） | 参考答案 |
+### 翻转卡
 
-### 折叠答案
+```text
+::: flip 位权
+位权是什么？
+---
+基数的幂，随位置变化。
+:::
+```
+
+点击/回车翻面；打印时正反面都显示。
+
+### 答案折叠
 
 ```text
 ::: answer 参考答案
@@ -147,110 +122,219 @@ for i in range(3):
 :::
 ```
 
-渲染为 `<details>`，默认折叠；页面顶部有「展开全部答案」按钮，打印时自动展开。
+## 5. 图示 DSL
 
-## 5. 生成命令
+所有图都是 HTML/CSS/SVG，离线、响应式、可打印。
 
-在工作区根目录执行：
+### flow（流程）
+
+```text
+::: flow 指令周期
+取指 → 译码 → 执行 → 访存 → 写回
+:::
+```
+
+### layers（层次）
+
+```text
+::: layers 存储层次
+CPU 寄存器 | 最快、最小
+Cache | 介于 CPU 与内存
+内存 | 主存
+磁盘 | 最慢、最大
+:::
+```
+
+### timeline（时间线）
+
+```text
+::: timeline 发展
+1946 | ENIAC
+1952 | EDVAC
+1964 | IBM System/360
+:::
+```
+
+### cycle（循环）
+
+```text
+::: cycle 指令周期
+取指 → 译码 → 执行 → 写回
+:::
+```
+
+3-8 个节点；超过范围自动退化成 flow。
+
+### compare（对比）
+
+```text
+::: compare 冯·诺依曼 vs 哈佛
+| 维度 | 冯·诺依曼 | 哈佛 |
+|------|-----------|------|
+| 存储 | 指令数据同存 | 分开存储 |
+:::
+```
+
+### bars（数据图表）
+
+```text
+::: bars 性能对比
+方案A: 40
+方案B: 75
+方案C: 60
+:::
+```
+
+目前支持柱状/条形图；折线/坐标图用 `svg` 代码块。
+
+### 原始 SVG
+
+````text
+```svg
+<svg ...>...</svg>
+```
+````
+
+SVG 元素可加动画类：
+
+- `class="pulse"`：脉冲
+- `class="flow"`：虚线流动
+- `class="float"`：上下浮动
+
+## 6. 答题卡
+
+在 Markdown 中放一个 ` ```quiz ` JSON 块：
+
+````text
+```quiz
+{
+  "questions": [
+    {
+      "id": "Q1",
+      "type": "choice",
+      "prompt": "以下哪句话正确？",
+      "options": ["A 选项", "B 选项", "C 选项"],
+      "answer": "B",
+      "explanation": "位权是基数的幂。"
+    },
+    {
+      "id": "Q2",
+      "type": "text",
+      "prompt": "把十进制 200 转成二进制。",
+      "answer": "11001000",
+      "explanation": "除基取余，逆序排列。"
+    }
+  ]
+}
+```
+````
+
+自动生成：
+
+- 选题/简答输入
+- 已答计数
+- 提交答案（本地服务）
+- 复制提交文本（无服务兜底）
+- 查看参考答案（默认折叠）
+- 本地保存草稿
+
+## 7. 提交服务
 
 ```bash
-# 生成单个单元 + 更新 index
+python scripts/course_server.py --course "计算机组成原理" --port 8765
+```
+
+- 只绑定 `127.0.0.1`
+- 静态提供 `讲义/{课程}/`
+- `POST /api/answers` 写入 `answers/latest.json`
+- `GET /api/health`、`GET /api/answers/latest`
+- 用户点提交后，AI 读取 `latest.json` 批改
+
+如果没有启动服务，答题卡会提示“复制提交文本”，用户粘贴到聊天即可。
+
+## 8. 生成命令
+
+```bash
+# 生成单个课件 + 更新 index
 python scripts/lesson_html.py build \
   --course "计算机组成原理" \
   --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
-  --state "teachers/计算机组成原理/learning-state.json"
+  --state "teachers/计算机组成原理/learning-state.json" \
+  --server-url "http://127.0.0.1:8765"
 
-# 重建该课程全部 HTML（改了多个 md 后）
-python scripts/lesson_html.py rebuild --course "计算机组成原理" \
-  --state "teachers/计算机组成原理/learning-state.json"
+# 重建全部
+python scripts/lesson_html.py rebuild --course "计算机组成原理" --state "..."
 
-# 只刷新 index（新增/删除单元、掌握度变化后）
-python scripts/lesson_html.py index --course "计算机组成原理" \
-  --state "teachers/计算机组成原理/learning-state.json"
+# 只刷新目录
+python scripts/lesson_html.py index --course "计算机组成原理" --state "..."
 ```
 
 参数：
 
 | 参数 | 说明 |
 |------|------|
-| `--course` | 课程名，必填；决定 `讲义/{课程}/` 目录 |
-| `--file` | 源 Markdown，`build` 必填 |
+| `--course` | 课程名，决定目录 |
+| `--file` | Markdown 源文件（build 必填） |
 | `--output-dir` | 输出根目录，默认 `讲义` |
-| `--course-dir` | 课程子目录名，默认同 `--course` |
-| `--state` | `learning-state.json` 路径；不传会自动找 `teachers/{课程}/learning-state.json` |
+| `--course-dir` | 课程子目录名 |
+| `--state` | learning-state.json 路径 |
+| `--server-url` | 答题提交服务地址，默认 `http://127.0.0.1:8765` |
+| `--layout` | `deck` / `article`，覆盖 frontmatter |
 | `--quiet` | 不打印生成日志 |
 
-## 6. index.html
+## 9. index.html
 
-自动生成，包含：
+- 统计：单元总数、已完成、待复习、薄弱知识点
+- 进度条、完成度
+- 到期复习清单
+- 薄弱知识点 + AI 建议下一步
+- 搜索 / 状态筛选
+- 练习/补讲/复习页统一列出
+- 打印/PDF
 
-- **统计**：单元总数、已完成、待复习、薄弱知识点
-- **进度条**：来自 `learning-state.json` 的 `progress.overall_percent`（缺失时按已完成单元计算）
-- **该复习了**：到期复习项（最多展示 8 个）
-- **薄弱知识点**：Lv0/Lv1，带掌握度标签
-- **AI 建议下一步**：来自 `mastery.next_action`（重讲/练习/复习/推进）
-- **搜索**：按标题、单元、标签、练习/讲义过滤
-- **状态筛选**：全部 / 已完成 / 进行中 / 待复习 / 待学
-- **打印**：打印按钮 + 打印样式
+## 10. 状态映射
 
-## 7. 与 learning-state.json 的映射
+读取：
 
-脚本会读取（存在时）：
-
-- `route.units[]`：单元 id/title/status
+- `route.units[]`：单元状态
 - `progress.completed_units[]`：完成状态、`next_review_at`
 - `progress.overall_percent`：进度条
 - `mastery.concepts`：掌握度、薄弱项、到期复习
 - `mastery.next_action`：建议下一步
 
-匹配顺序：frontmatter `state_id` → `unit` → `title` 包含关系。匹配不上不影响页面生成，只是不显示对应掌握度/状态。
+匹配顺序：`state_id` → `unit` → `title` 包含关系。
 
-## 8. 练习卷工作流
+## 11. 主题与动画
 
-1. 用户做完课后练习/检测，AI 记录结果：
+- 顶部「主题」按钮：自动 / 浅色 / 深色，保存在 localStorage
+- 步骤切换、图示入场、流程箭头、柱状图增长
+- 答题卡提交状态、翻卡、提示展开
+- 尊重 `prefers-reduced-motion`
+- 打印时隐藏控件、展开答案
 
-```bash
-python scripts/mastery.py record --state ... --concept "分组转换" --unit U4 \
-  --kind first --result fail --error "概念混淆"
-```
+## 12. 排错
 
-2. 取建议练习目标：
+| 现象 | 处理 |
+|------|------|
+| 找不到源文件 | 检查 `--file` 路径；中文/空格用引号 |
+| 答案没写入 | 服务是否启动、端口是否一致、页面是否从服务地址打开 |
+| `answers/latest.json` 不存在 | 用户未提交；让用户点提交或复制文本 |
+| quiz 解析失败 | 检查 ` ```quiz ` 块是否是合法 JSON |
+| 图示不显示 | 检查 `::: flow` 等是否闭合；节点是否用 `→` 分隔 |
+| 中文文件名乱码 | 文件是 UTF-8；终端显示问题不影响浏览器 |
+| 打印是深色 | 打印样式会覆盖主题；如仍异常，切浅色再打印 |
+| 动画太多 | 系统设置“减少动态效果”即可关闭 |
 
-```bash
-python scripts/mastery.py practice --state ... --count 3
-```
+## 13. 安全与隐私
 
-3. 按 `prompts/practice_template.md` 写练习卷 Markdown，保存为
-   `讲义/{课程}/practice-XX-{标题}.md`，frontmatter 加 `kind: practice` 与 `parent_unit`
-4. 运行 `lesson_html.py build` 生成 HTML；index 会自动把它列为「练习卷」
-5. 用户做完后，用 `mastery.py record` 记录，再运行 `lesson_html.py index` 刷新
+- 所有内容本地生成，不上传网络
+- 只允许 `svg` 代码块原样嵌入；其他 HTML 转义
+- 链接只允许 http/https/mailto/# 和相对路径
+- 答题文件只存学习数据，不存聊天原文/密钥
+- `teachers/`、`讲义/`、`.dsh-meow/` 已在 `.gitignore` 排除
 
-## 9. 打印 / PDF
+## 14. 示例
 
-- 页面顶部「打印 / PDF」按钮
-- `@media print` 隐藏目录/按钮/导航，自动展开答案
-- 建议用 Chrome/Edge 的「另存为 PDF」，A4 页边距默认即可
-
-## 10. 离线与安全
-
-- CSS/JS 全部内联，不加载 CDN、字体、统计脚本
-- 图片可用相对路径；跨设备分享时把图片一起带走
-- 所有 Markdown 文本默认转义；只允许 `svg` 代码块原样嵌入
-- 链接只允许 `http/https/mailto/#` 和相对路径，`javascript:` 会被替换为 `#`
-- 不要把 API key、聊天原文、个人隐私写进讲义
-
-## 11. 排错
-
-| 现象 | 原因/处理 |
-|------|----------|
-| `找不到源文件` | `--file` 路径不对；用引号包住含空格/中文的路径 |
-| 生成的 index 没更新 | 用了 `build` 但源文件在别处；`build` 会复制 md 到输出目录，再 `rebuild/index` |
-| 状态没显示 | `--state` 路径不对，或 JSON 损坏；脚本会警告并使用 frontmatter 状态 |
-| 中文文件名乱码 | Windows 终端编码问题，文件本身是 UTF-8；用浏览器/编辑器打开确认 |
-| 浏览器打不开 `file://` | 某些工具限制；直接双击 HTML，或起一个本地静态服务器 |
-| 答案没折叠 | 用了普通 Markdown 而不是 `::: answer` |
-| 表格错位 | 表头分隔行必须是 `|---|---|` 形式 |
-
-## 12. 示例
-
-参见 `prompts/lesson_template.md` 与 `prompts/practice_template.md`；仓库里的 `examples/lesson-demo.md` 是一个可构建的完整示例。
+- `examples/lesson-demo.md`：完整 deck + 图示 + 折叠答案
+- `examples/practice-demo.md`：练习页
+- `prompts/lesson_template.md`、`practice_template.md`、`reteach_template.md`、`review_template.md`

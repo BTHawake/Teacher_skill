@@ -1,7 +1,7 @@
 {
-  "version": "3.0.0",
+  "version": "4.0.0",
   "name": "teacher-skills",
-  "description": "AI老师Skill - 给定资料后像老师一样教会用户理解内容；v3.0 支持 HTML 讲义与自适应教学",
+  "description": "AI老师Skill - HTML 主课堂：分步课件、答题卡提交、自适应补讲/练习/复习",
   "author": "teacher-skills",
   "license": "MIT",
   "skill": {
@@ -126,6 +126,11 @@
       "path": "scripts/mastery.py",
       "description": "自适应掌握度：记录练习结果、复习计划、下一步建议",
       "usage": "python scripts/mastery.py record|advise|due|practice|show --state <state.json>"
+    },
+    "course_server": {
+      "path": "scripts/course_server.py",
+      "description": "本地课件服务 + 答题卡提交（写入 answers/latest.json）",
+      "usage": "python scripts/course_server.py --course <课程> --port 8765"
     }
   },
   "references": [
@@ -156,6 +161,10 @@
     {
       "path": "ref/subject-plugins.md",
       "description": "学科插件协议：knowledge / methodology 分流"
+    },
+    {
+      "path": "ref/html-first-teaching.md",
+      "description": "HTML-first 教学法：课堂/聊天分工、课件生成、批改与补讲"
     }
   ],
   "html_output": {
@@ -166,7 +175,15 @@
     "theme": "auto",
     "build_command": "python scripts/lesson_html.py build --course {course} --file {file} --state {state}",
     "rebuild_command": "python scripts/lesson_html.py rebuild --course {course} --state {state}",
-    "index_command": "python scripts/lesson_html.py index --course {course} --state {state}"
+    "index_command": "python scripts/lesson_html.py index --course {course} --state {state}",
+    "layout": "deck",
+    "answers_dir": "answers",
+    "server": {
+      "script": "scripts/course_server.py",
+      "host": "127.0.0.1",
+      "port": 8765,
+      "answers_file": "answers/latest.json"
+    }
   },
   "adaptive": {
     "enabled": true,
@@ -205,7 +222,14 @@
       "表达不清",
       "迁移失败",
       "记忆混淆"
-    ]
+    ],
+    "answer_source": "讲义/{course}/answers/latest.json",
+    "page_types": {
+      "reteach": "reteach-XX-标题.html",
+      "practice": "practice-XX-标题.html",
+      "review": "review-XX-标题.html",
+      "advance": "unit-XX-标题.html"
+    }
   },
   "subjects": {
     "types": [
@@ -213,6 +237,7 @@
       "methodology"
     ],
     "micro_flow": "每个 subjects/*.md 的 frontmatter 含 subject/type/version，正文含 5 步执行微流程",
-    "template": "subjects/_template-SKILL.md"
+    "template": "subjects/_template-SKILL.md",
+    "html_first": "v4.0：HTML 主课堂；聊天只做诊断/答疑/批改/决策"
   }
 }

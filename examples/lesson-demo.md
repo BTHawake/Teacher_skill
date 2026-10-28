@@ -4,6 +4,8 @@ unit: 4
 title: 进位计数制
 date: 2026-10-28
 status: 已完成
+kind: lesson
+layout: deck
 tags: [进制, 位权, 转换]
 objectives:
   - 理解基数与位权的关系

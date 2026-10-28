@@ -1,12 +1,12 @@
 ---
 name: subject-plugins
 description: >
-  teacher.skill v3.0 学科插件协议：学科元数据、执行微流程、
+  teacher.skill v4.0 学科插件协议：学科元数据、执行微流程、
   knowledge / methodology 两类教学路径。
-version: 3.0.0
+version: 4.0.0
 ---
 
-# 学科插件协议（v3.0）
+# 学科插件协议（v4.0）
 
 > 学科文件不再只是"参考资料"，而是自带执行微流程的插件。
 > 主 SKILL 负责调度，学科文件负责"这一科具体怎么教"。
@@ -21,7 +21,7 @@ name: math-teacher
 description: ...
 subject: math            # 学科标识
 type: knowledge          # knowledge | methodology
-version: 3.0.0
+version: 4.0.0
 triggers: [...]
 ---
 ```
@@ -29,7 +29,7 @@ triggers: [...]
 正文在标题后有一段：
 
 ```markdown
-## 执行微流程（v3.0）
+## 执行微流程（v4.0）
 
 > 主 SKILL 加载本学科后，优先按这 5 步执行；每步完成后再进入下一步。
 
@@ -101,7 +101,7 @@ triggers: [...]
 ## 5. 新增学科
 
 1. 复制 `subjects/_template-SKILL.md`
-2. 填写 frontmatter：`subject`、`type`、`version: 3.0.0`
+2. 填写 frontmatter：`subject`、`type`、`version: 4.0.0`
 3. 写 5 步「执行微流程」
 4. 在 `SKILL.md` 学科表加一行
 5. 在 `config/skill-config.json` 的 `subjects` 中登记（可选）

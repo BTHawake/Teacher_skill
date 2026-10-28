@@ -3,7 +3,7 @@ name: management-commands
 description: >
   teacher-skill 管理命令表、进化模式说明、教学档案结构。
   用户输入管理命令时加载本文件执行对应操作。
-version: 3.0.0
+version: 4.0.0
 ---
 
 # 管理命令表
@@ -25,13 +25,16 @@ version: 3.0.0
 | `/teacher rollback {v}` | 回滚到指定版本 | `/teacher rollback v3` |
 | `/teacher progress` | 查看学习状态详情（含各单元理解检查结果）v2.1 | `/teacher progress` |
 | **`/teacher correct`** | **进入错误纠正模式——当 AI 讲错了/偏了时使用（v2.7）** | **`/teacher correct`** |
-| `/teacher quick` | 轻量模式：只讲一个概念 + 一个例子 + 一道检测（v3.0） | `/teacher quick 什么是位权` |
-| `/teacher practice` | 按薄弱点生成一组练习（默认 3 题），并生成练习卷 HTML（v3.0） | `/teacher practice` |
-| `/teacher mastery` | 查看掌握度总览：各知识点 Lv0-Lv3、薄弱点、下次复习（v3.0） | `/teacher mastery` |
-| `/teacher export` | 把当前单元导出为 HTML 讲义并更新讲义目录（v3.0） | `/teacher export` |
-| `/teacher rebuild` | 重建当前课程的全部 HTML 讲义/练习卷（v3.0） | `/teacher rebuild` |
-| `/teacher html on` / `off` | 开启/关闭每单元自动生成 HTML（v3.0） | `/teacher html off` |
-| `/teacher review` | 打开 `讲义/{课程}/index.html`，按到期复习项回顾（v3.0 增强） | `/teacher review` |
+| `/teacher quick` | 轻量模式：一张单页 HTML 微课（概念 + 例子 + 1 题）（v4.0） | `/teacher quick 什么是位权` |
+| `/teacher serve` | 启动本地课件/答题服务（v4.0） | `/teacher serve` |
+| `/teacher answer` | 读取 `answers/latest.json`，批改并记录掌握度（v4.0） | `/teacher answer` |
+| `/teacher practice` | 按薄弱点生成 3 道练习页 HTML（v4.0） | `/teacher practice` |
+| `/teacher reteach` | 针对当前薄弱点生成补讲页 HTML（v4.0） | `/teacher reteach 位权` |
+| `/teacher mastery` | 查看掌握度总览：各知识点 Lv0-Lv3、薄弱点、下次复习（v4.0） | `/teacher mastery` |
+| `/teacher export` | 把当前单元导出为 HTML 课件并更新目录（v4.0） | `/teacher export` |
+| `/teacher rebuild` | 重建当前课程的全部 HTML（v4.0） | `/teacher rebuild` |
+| `/teacher html on` / `off` | 开启/关闭每单元自动生成 HTML（v4.0） | `/teacher html off` |
+| `/teacher review` | 打开 `讲义/{课程}/index.html`，按到期复习项回顾（v4.0） | `/teacher review` |
 
 ## 使用说明
 
@@ -42,8 +45,11 @@ version: 3.0.0
 - `/teacher style` 系列命令仅在启用了风格模仿时有效
 - `/teacher progress` 调用 `scripts/learning_state.py --load` 加载学习状态并展示
 - `/teacher mastery` 调用 `scripts/mastery.py show --state ...`，展示 Lv0-Lv3 掌握度
+- `/teacher serve` 调用 `python scripts/course_server.py --course ... --port 8765`（后台运行）
+- `/teacher answer` 读取 `讲义/{课程}/answers/latest.json`，逐题批改后调用 `mastery.py record`
 - `/teacher practice` 先调用 `scripts/mastery.py practice --count 3` 取目标，再按 `prompts/practice_template.md` 出题并构建 HTML
-- `/teacher export` 调用 `scripts/lesson_html.py build --course ... --file ... --state ...`
+- `/teacher reteach` 按 `prompts/reteach_template.md` 生成补讲页；不覆盖原课件
+- `/teacher export` 调用 `scripts/lesson_html.py build --course ... --file ... --state ... --server-url ...`
 - `/teacher rebuild` 调用 `scripts/lesson_html.py rebuild --course ... --state ...`
 - `/teacher review` 生成/刷新 `index.html`，然后引导用户打开；AI 不直接贴大段 HTML
 

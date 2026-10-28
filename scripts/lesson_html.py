@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import math
 import re
 import sys
 import unicodedata
@@ -37,7 +38,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-VERSION = "3.0.0"
+VERSION = "4.0.0"
 DEFAULT_OUTPUT_DIR = "讲义"
 DEFAULT_STATE_GLOB = "teachers/*/learning-state.json"
 
@@ -53,6 +54,8 @@ CALLOUTS: Dict[str, Dict[str, str]] = {
     "formula": {"label": "公式", "icon": "ƒ", "class": "formula"},
     "practice": {"label": "练习", "icon": "✎", "class": "practice"},
     "answer": {"label": "参考答案", "icon": "?", "class": "answer"},
+    "hint": {"label": "提示", "icon": "?", "class": "hint"},
+    "think": {"label": "先想一想", "icon": "★", "class": "think"},
     "exam": {"label": "考点", "icon": "◆", "class": "exam"},
 }
 
@@ -356,6 +359,9 @@ class MarkdownRenderer:
     def __init__(self) -> None:
         self.headings: List[Dict[str, Any]] = []
         self._heading_seq = 0
+        self.quiz: Optional[Dict[str, Any]] = None
+        self.quiz_error = ""
+        self._diagram_seq = 0
 
     def render(self, markdown: str) -> Tuple[str, List[Dict[str, Any]]]:
         lines = markdown.replace("\r\n", "\n").replace("\r", "\n").split("\n")
@@ -396,7 +402,13 @@ class MarkdownRenderer:
                     inner.append(nxt)
                     j += 1
                 inner_html, _ = self._blocks(inner, 0)
-                out.append(self._render_callout(kind, title, inner_html))
+                diagram_kinds = {"flow", "layers", "timeline", "cycle", "compare", "bars"}
+                if kind == "flip":
+                    out.append(self._render_flip(title, inner))
+                elif kind in diagram_kinds:
+                    out.append(self._render_diagram(kind, title, inner))
+                else:
+                    out.append(self._render_callout(kind, title, inner_html))
                 i = j + 1
                 continue
 
@@ -414,6 +426,26 @@ class MarkdownRenderer:
                     code_lines.append(lines[j])
                     j += 1
                 code = "\n".join(code_lines)
+                if lang.lower() == "quiz":
+                    try:
+                        data = json.loads(code)
+                        if isinstance(data, list):
+                            data = {"questions": data}
+                        if not isinstance(data, dict) or not isinstance(data.get("questions"), list):
+                            raise ValueError('quiz 需要 {"questions": [...]} 结构')
+                        if self.quiz is None:
+                            self.quiz = data
+                        else:
+                            self.quiz["questions"].extend(data["questions"])
+                        out.append("<!--QUIZ-->")
+                    except (ValueError, TypeError) as exc:
+                        self.quiz_error = str(exc)
+                        out.append(
+                            '<div class="quiz-error">练习数据解析失败：%s</div>'
+                            % html.escape(str(exc))
+                        )
+                    i = j + 1
+                    continue
                 if lang.lower() == "svg":
                     svg = code.strip()
                     if not svg.lower().startswith("<svg"):
@@ -504,12 +536,17 @@ class MarkdownRenderer:
     def _render_callout(self, kind: str, title: str, inner_html: str) -> str:
         info = CALLOUTS.get(kind, {"label": kind, "icon": "📌", "class": "note"})
         label = title or info["label"]
-        if kind == "answer":
+        if kind in ("answer", "hint", "think"):
             return (
-                '<details class="answer">'
+                '<details class="%s">'
                 '<summary><span class="answer-icon">%s</span>%s</summary>'
                 '<div class="answer-body">%s</div></details>'
-                % (info["icon"], _inline(label), inner_html)
+                % (
+                    "answer" if kind == "answer" else ("hint" if kind == "hint" else "hint think"),
+                    info["icon"],
+                    _inline(label),
+                    inner_html,
+                )
             )
         return (
             '<aside class="callout %s">'
@@ -521,6 +558,224 @@ class MarkdownRenderer:
                 _inline(label),
                 inner_html,
             )
+        )
+
+    def _render_diagram(self, kind: str, title: str, inner: Sequence[str]) -> str:
+        labels = {
+            "flow": "流程",
+            "layers": "层次",
+            "timeline": "时间线",
+            "cycle": "循环",
+            "compare": "对比",
+            "bars": "数据",
+        }
+        title = title.strip() or labels.get(kind, kind)
+        if kind == "flow":
+            body = self._render_flow(inner)
+        elif kind == "layers":
+            body = self._render_layers(inner)
+        elif kind == "timeline":
+            body = self._render_timeline(inner)
+        elif kind == "cycle":
+            body = self._render_cycle(inner)
+        elif kind == "compare":
+            body = self._render_compare(inner)
+        elif kind == "bars":
+            body = self._render_bars(inner)
+        else:
+            return ""
+        if not body:
+            return ""
+        return (
+            '<figure class="diagram diagram-%s"><figcaption>%s</figcaption>%s</figure>'
+            % (kind, _inline(title), body)
+        )
+
+    def _render_flow(self, inner: Sequence[str]) -> str:
+        raw = " ".join(line.strip() for line in inner if line.strip())
+        if not raw:
+            return ""
+        nodes = [n.strip() for n in re.split(r"\s*(?:→|->|⇒|➜)\s*", raw) if n.strip()]
+        if len(nodes) < 2:
+            return ""
+        parts: List[str] = []
+        for idx, node in enumerate(nodes):
+            parts.append(
+                '<span class="flow-node" style="--i:%d">%s</span>' % (idx, _inline(node))
+            )
+            if idx < len(nodes) - 1:
+                parts.append('<span class="flow-arrow" aria-hidden="true">→</span>')
+        return '<div class="flow-track">%s</div>' % "".join(parts)
+
+    def _render_layers(self, inner: Sequence[str]) -> str:
+        lines = [line.strip() for line in inner if line.strip()]
+        if not lines:
+            return ""
+        parts: List[str] = []
+        total = len(lines)
+        for idx, line in enumerate(lines):
+            name, note = line, ""
+            if "|" in line:
+                name, note = [part.strip() for part in line.split("|", 1)]
+            width = 100 if total == 1 else 55 + 45.0 * idx / (total - 1)
+            parts.append(
+                '<div class="layer" style="--w:%.0f%%;--i:%d">'
+                '<span class="layer-name">%s</span>%s</div>'
+                % (
+                    width,
+                    idx,
+                    _inline(name),
+                    ('<span class="layer-note">%s</span>' % _inline(note)) if note else "",
+                )
+            )
+        return '<div class="layers">%s</div>' % "".join(parts)
+
+    def _render_timeline(self, inner: Sequence[str]) -> str:
+        items: List[str] = []
+        for idx, line in enumerate([line.strip() for line in inner if line.strip()]):
+            date, text = "", line
+            if "|" in line:
+                date, text = [part.strip() for part in line.split("|", 1)]
+            else:
+                match = re.match(r"^((?:19|20)\d{2}(?:-\d{1,2})?)\s+(.+)$", line)
+                if match:
+                    date, text = match.group(1), match.group(2)
+            items.append(
+                '<li style="--i:%d"><span class="timeline-dot"></span>'
+                '<div class="timeline-card">%s<div class="timeline-text">%s</div></div></li>'
+                % (
+                    idx,
+                    ('<div class="timeline-date">%s</div>' % _inline(date)) if date else "",
+                    _inline(text),
+                )
+            )
+        if not items:
+            return ""
+        return '<ol class="timeline">%s</ol>' % "".join(items)
+
+    def _render_cycle(self, inner: Sequence[str]) -> str:
+        raw = " ".join(line.strip() for line in inner if line.strip())
+        nodes = [n.strip() for n in re.split(r"\s*(?:→|->|⇒|➜)\s*", raw) if n.strip()]
+        if len(nodes) < 3 or len(nodes) > 8:
+            return self._render_flow(inner)
+        self._diagram_seq += 1
+        uid = "cycle-%d" % self._diagram_seq
+        width, height = 460, 340
+        cx, cy, radius, node_r = 230, 170, 118, 40
+        angles = [math.radians(-90 + i * 360.0 / len(nodes)) for i in range(len(nodes))]
+        points = [
+            (cx + radius * math.cos(angle), cy + radius * math.sin(angle))
+            for angle in angles
+        ]
+        edges: List[str] = []
+        delta = min(0.38, (2 * math.pi / len(nodes)) * 0.32)
+        for idx in range(len(nodes)):
+            a1 = angles[idx] + delta
+            a2 = angles[(idx + 1) % len(nodes)] - delta
+            x1, y1 = cx + radius * math.cos(a1), cy + radius * math.sin(a1)
+            x2, y2 = cx + radius * math.cos(a2), cy + radius * math.sin(a2)
+            edges.append(
+                '<path class="cycle-edge" d="M %.1f %.1f A %d %d 0 0 1 %.1f %.1f" '
+                'marker-end="url(#%s-arrow)"/>'
+                % (x1, y1, radius, radius, x2, y2, uid)
+            )
+        node_svg: List[str] = []
+        for idx, node in enumerate(nodes):
+            x, y = points[idx]
+            chunks = [node[i : i + 6] for i in range(0, len(node), 6)][:2]
+            if len(chunks) == 1:
+                text_y = y + 4
+                spans = '<tspan x="%.1f" y="%.1f">%s</tspan>' % (
+                    x,
+                    text_y,
+                    html.escape(chunks[0]),
+                )
+            else:
+                spans = (
+                    '<tspan x="%.1f" y="%.1f">%s</tspan>'
+                    '<tspan x="%.1f" y="%.1f">%s</tspan>'
+                    % (
+                        x,
+                        y - 4,
+                        html.escape(chunks[0]),
+                        x,
+                        y + 12,
+                        html.escape(chunks[1]),
+                    )
+                )
+            node_svg.append(
+                '<g class="cycle-node" style="--i:%d">'
+                '<circle cx="%.1f" cy="%.1f" r="%d"/>'
+                '<text x="%.1f" y="%.1f" text-anchor="middle">%s</text></g>'
+                % (idx, x, y, node_r, x, y, spans)
+            )
+        svg = (
+            '<svg viewBox="0 0 %d %d" role="img" aria-label="%s">'
+            '<defs><marker id="%s-arrow" viewBox="0 0 10 10" refX="8" refY="5" '
+            'markerWidth="6" markerHeight="6" orient="auto-start-reverse">'
+            '<path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>'
+            "%s%s</svg>"
+            % (
+                width,
+                height,
+                _escape("循环图"),
+                uid,
+                "".join(edges),
+                "".join(node_svg),
+            )
+        )
+        return svg
+
+    def _render_compare(self, inner: Sequence[str]) -> str:
+        inner_html, _ = self._blocks(inner, 0)
+        if not inner_html.strip():
+            return ""
+        return '<div class="compare-body">%s</div>' % inner_html
+
+    def _render_bars(self, inner: Sequence[str]) -> str:
+        items: List[Tuple[str, float, str]] = []
+        for line in [line.strip() for line in inner if line.strip()]:
+            match = re.match(r"^(.+?)\s*[:|]\s*(-?\d+(?:\.\d+)?)\s*(%?)$", line)
+            if not match:
+                continue
+            items.append((match.group(1).strip(), float(match.group(2)), match.group(3)))
+        if not items:
+            return ""
+        max_value = max(abs(value) for _, value, _ in items) or 1.0
+        parts: List[str] = []
+        for idx, (label, value, suffix) in enumerate(items):
+            width = max(2.0, abs(value) / max_value * 100.0)
+            parts.append(
+                '<div class="bar-row" style="--i:%d">'
+                '<span class="bar-label">%s</span>'
+                '<span class="bar-track"><span class="bar-fill" style="--w:%.1f%%"></span></span>'
+                '<span class="bar-value">%s%s</span></div>'
+                % (idx, _inline(label), width, ("%g" % value), suffix)
+            )
+        return '<div class="bars">%s</div>' % "".join(parts)
+
+    def _render_flip(self, title: str, inner: Sequence[str]) -> str:
+        """交互翻转卡：正面一句话/问题，背面解释。用单独一行 --- 分隔。"""
+        front: List[str] = []
+        back: List[str] = []
+        target = front
+        for line in inner:
+            if line.strip() == "---":
+                target = back
+                continue
+            target.append(line)
+        front_html, _ = self._blocks(front, 0)
+        back_html, _ = self._blocks(back, 0)
+        if not back_html.strip():
+            back_html = "<p>（背面内容待补充）</p>"
+        label = _inline(title or "概念卡")
+        return (
+            '<div class="flip-card" tabindex="0" role="button" aria-label="翻转卡片：%s">'
+            '<div class="flip-inner">'
+            '<div class="flip-face flip-front"><div class="flip-label">%s</div>%s'
+            '<span class="flip-tip">点击翻面</span></div>'
+            '<div class="flip-face flip-back"><div class="flip-label">背面</div>%s</div>'
+            "</div></div>" % (_escape(_strip_tags(label)), label, front_html, back_html)
         )
 
     def _render_table(self, lines: Sequence[str], start: int) -> Tuple[str, int]:
@@ -855,7 +1110,7 @@ LESSON_JS = r"""
   var toggle=document.getElementById('toggle-answers');
   if(toggle){
     toggle.addEventListener('click',function(){
-      var all=Array.prototype.slice.call(document.querySelectorAll('details.answer'));
+      var all=Array.prototype.slice.call(document.querySelectorAll('details.answer,details.quiz-answer'));
       if(!all.length){return;}
       var anyClosed=all.some(function(d){return !d.open;});
       all.forEach(function(d){d.open=anyClosed;});
@@ -882,7 +1137,7 @@ LESSON_JS = r"""
   var opened=[];
   window.addEventListener('beforeprint',function(){
     opened=[];
-    document.querySelectorAll('details.answer').forEach(function(d){
+    document.querySelectorAll('details.answer,details.quiz-answer').forEach(function(d){
       opened.push([d,d.open]);d.open=true;
     });
   });
@@ -891,6 +1146,626 @@ LESSON_JS = r"""
   });
 })();
 """
+
+QUIZ_CSS = r"""
+.quiz-card{
+  margin:24px 0;padding:18px 20px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--card);box-shadow:var(--shadow);
+}
+.quiz-card-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.quiz-card-head strong{font-size:16px}
+.quiz-card-head span{color:var(--muted);font-size:12.5px}
+.quiz-question{padding:12px 0;border-top:1px dashed var(--border)}
+.quiz-question:first-of-type{border-top:0;padding-top:0}
+.quiz-q-title{font-size:12.5px;color:var(--muted);letter-spacing:.04em;margin-bottom:4px}
+.quiz-prompt{font-weight:600;margin-bottom:8px}
+.quiz-options{display:flex;flex-direction:column;gap:6px}
+.quiz-option{display:flex;gap:8px;align-items:flex-start;padding:7px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer}
+.quiz-option:hover{border-color:var(--accent);background:var(--accent-soft)}
+.quiz-option input{margin-top:4px}
+.quiz-option .opt-letter{font-weight:700;color:var(--accent);min-width:18px}
+.quiz-text{width:100%;min-height:76px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:inherit;resize:vertical}
+.quiz-text:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.quiz-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.quiz-status{margin:8px 0 0;font-size:13px;color:var(--muted);min-height:18px}
+.quiz-status.ok{color:var(--green)}
+.quiz-status.err{color:var(--red)}
+.quiz-submission{width:100%;margin-top:8px;min-height:90px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:12px/1.5 monospace;resize:vertical}
+.quiz-answer{margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:0 12px;background:var(--bg)}
+.quiz-answer summary{cursor:pointer;color:var(--accent);font-weight:600;padding:8px 0;font-size:13px}
+.quiz-answer .quiz-explanation{padding:0 0 10px;font-size:14px}
+.quiz-explanation p{margin:4px 0}
+.quiz-error{border:1px solid var(--red);background:var(--red-soft);color:var(--red);padding:10px 12px;border-radius:8px;margin:12px 0;font-size:13.5px}
+.deck{margin-top:8px}
+.deck-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.deck-progress{flex:1;height:7px;background:var(--bg);border:1px solid var(--border);border-radius:999px;overflow:hidden}
+.deck-progress > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#22c55e);transition:width .2s ease}
+.deck-counter{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.deck-step{display:none;animation:deck-in .18s ease}
+.deck-step.active{display:block}
+@keyframes deck-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.step-kicker{font-size:12px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.deck-controls{display:flex;justify-content:space-between;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--border)}
+.deck-controls button{min-width:110px}
+.deck-controls button:disabled{opacity:.4;cursor:not-allowed}
+.deck-toc a{cursor:pointer}
+.deck-toc a.active{color:var(--accent);border-left-color:var(--accent);font-weight:600}
+@media (max-width:900px){
+  .deck-top{position:static}
+  .deck-controls button{min-width:0;flex:1}
+}
+@media print{
+  .deck-step{display:block!important;animation:none}
+  .deck-top,.deck-controls,.deck-toc{display:none!important}
+  .step-kicker{display:none}
+}
+"""
+
+VIVID_CSS = r"""
+/* 主题切换 */
+html[data-theme="light"]{
+  --bg:#f5f6f8;--card:#ffffff;--text:#1f2328;--muted:#667085;
+  --border:#e4e7ec;--accent:#2563eb;--accent-soft:#eff6ff;
+  --green:#15803d;--green-soft:#ecfdf3;--amber:#b45309;--amber-soft:#fffbeb;
+  --red:#b91c1c;--red-soft:#fef2f2;--purple:#6d28d9;--purple-soft:#f5f3ff;
+  --code-bg:#f1f5f9;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.1);
+}
+html[data-theme="dark"]{
+  --bg:#0f1115;--card:#161a20;--text:#e6e8eb;--muted:#98a2b3;
+  --border:#2a3038;--accent:#60a5fa;--accent-soft:#17233a;
+  --green:#4ade80;--green-soft:#12251a;--amber:#fbbf24;--amber-soft:#2a2110;
+  --red:#f87171;--red-soft:#2a1515;--purple:#c4b5fd;--purple-soft:#211a35;
+  --code-bg:#1c222b;--shadow:0 1px 3px rgba(0,0,0,.4);
+}
+/* 提示 / 先想一想 */
+details.hint{
+  border:1px solid var(--border);border-left:4px solid var(--amber);border-radius:0 10px 10px 0;
+  background:var(--amber-soft);margin:14px 0;padding:0 14px;
+}
+details.hint.think{border-left-color:var(--purple);background:var(--purple-soft)}
+details.hint summary{
+  cursor:pointer;font-weight:700;color:var(--amber);padding:9px 0;list-style:none;
+  display:flex;gap:7px;align-items:center;
+}
+details.hint.think summary{color:var(--purple)}
+details.hint summary::-webkit-details-marker{display:none}
+details.hint summary::after{content:"▸";margin-left:auto;color:var(--muted);transition:transform .15s}
+details.hint[open] summary::after{transform:rotate(90deg)}
+details.hint .answer-body{padding:0 0 10px;border-top:1px dashed var(--border);padding-top:8px}
+/* 翻转卡 */
+.flip-card{display:block;width:100%;min-height:180px;perspective:1200px;margin:18px 0;cursor:pointer}
+.flip-inner{position:relative;width:100%;min-height:180px;transition:transform .55s cubic-bezier(.2,.7,.2,1);transform-style:preserve-3d}
+.flip-card.flipped .flip-inner{transform:rotateY(180deg)}
+.flip-face{
+  position:absolute;inset:0;backface-visibility:hidden;border:1px solid var(--border);
+  border-radius:14px;background:var(--card);box-shadow:var(--shadow);padding:18px 20px;
+  overflow:auto;
+}
+.flip-front{border-left:4px solid var(--accent)}
+.flip-back{transform:rotateY(180deg);border-left:4px solid var(--green);background:var(--green-soft)}
+.flip-label{font-weight:800;font-size:17px;margin-bottom:8px}
+.flip-tip{display:block;color:var(--muted);font-size:12px;margin-top:10px}
+/* 图形通用 */
+.diagram figcaption{font-size:13px;color:var(--muted);text-align:left;margin-bottom:10px;font-weight:600}
+.flow-track{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
+.flow-node{
+  display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:8px 13px;
+  border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);
+  font-size:14px;line-height:1.35;text-align:center;animation:diagram-pop .35s both;
+  animation-delay:calc(var(--i) * .09s);box-shadow:var(--shadow);
+}
+.flow-arrow{color:var(--accent);font-size:20px;line-height:1;padding:0 2px;animation:arrow-pulse 1.6s infinite}
+.layers{display:flex;flex-direction:column;align-items:center;gap:8px}
+.layer{
+  width:var(--w);min-width:55%;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--card);
+  box-shadow:var(--shadow);animation:diagram-pop .4s both;animation-delay:calc(var(--i) * .1s);
+}
+.layer-name{font-weight:700}
+.layer-note{color:var(--muted);font-size:12.5px;text-align:right}
+.timeline{list-style:none;margin:6px 0;padding:0 0 0 22px;position:relative}
+.timeline::before{content:"";position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.timeline li{position:relative;margin:0 0 14px;padding-left:6px;animation:diagram-pop .4s both;animation-delay:calc(var(--i) * .1s)}
+.timeline-dot{position:absolute;left:-20px;top:7px;width:11px;height:11px;border-radius:50%;background:var(--accent);border:2px solid var(--card);box-shadow:0 0 0 2px var(--accent-soft)}
+.timeline-card{border:1px solid var(--border);border-radius:10px;background:var(--card);padding:9px 12px}
+.timeline-date{color:var(--accent);font-weight:700;font-size:12.5px;margin-bottom:2px}
+.timeline-text{font-size:14px}
+.cycle-edge{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:7 6;animation:cycle-flow 1.2s linear infinite}
+.cycle-node circle{fill:var(--card);stroke:var(--accent);stroke-width:2}
+.cycle-node text{fill:var(--text);font-size:12.5px;font-weight:600}
+.cycle-node{animation:diagram-pop .4s both;animation-delay:calc(var(--i) * .08s)}
+.compare-body .table-wrap{margin:0}
+.bars{display:flex;flex-direction:column;gap:9px}
+.bar-row{display:grid;grid-template-columns:minmax(76px,1fr) 3fr auto;gap:10px;align-items:center;animation:diagram-pop .35s both;animation-delay:calc(var(--i) * .08s)}
+.bar-label{font-size:13.5px;color:var(--text);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{height:14px;border-radius:999px;background:var(--bg);border:1px solid var(--border);overflow:hidden}
+.bar-fill{display:block;height:100%;width:var(--w);border-radius:999px;background:linear-gradient(90deg,var(--accent),#22c55e);animation:bar-grow .7s both}
+.bar-value{font-size:12.5px;color:var(--muted);min-width:42px;text-align:right}
+.diagram svg .pulse{animation:svg-pulse 2s ease-in-out infinite}
+.diagram svg .flow{stroke-dasharray:8 6;animation:cycle-flow 1.2s linear infinite}
+.diagram svg .float{animation:svg-float 3s ease-in-out infinite}
+/* 代码复制 */
+.content pre.code{position:relative}
+.code-copy{
+  position:absolute;top:8px;right:8px;z-index:2;border:1px solid #334155;background:#1e293b;
+  color:#cbd5e1;border-radius:6px;padding:3px 8px;font-size:11.5px;cursor:pointer;
+}
+.code-copy:hover{background:#334155;color:#fff}
+/* 已读步骤 */
+.deck-toc a.visited::after{content:"✓";float:right;color:var(--green);font-size:12px;margin-left:6px}
+.deck-read{font-size:12.5px;color:var(--muted);white-space:nowrap}
+/* 答题卡计数 */
+.quiz-count{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap}
+/* 动画 */
+@keyframes diagram-pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes arrow-pulse{0%,100%{opacity:.55;transform:translateX(0)}50%{opacity:1;transform:translateX(2px)}}
+@keyframes cycle-flow{to{stroke-dashoffset:-26}}
+@keyframes bar-grow{from{width:0}to{width:var(--w)}}
+@keyframes svg-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes svg-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+@media print{
+  html[data-theme="light"],html[data-theme="dark"]{
+    --bg:#fff;--card:#fff;--text:#000;--muted:#444;--border:#ddd;--code-bg:#f5f5f5;
+  }
+  .flip-card{min-height:0}
+  .flip-inner{transform:none!important}
+  .flip-face{position:static;transform:none!important;box-shadow:none;margin-bottom:8px;backface-visibility:visible}
+  .flip-back{display:block!important}
+}
+"""
+
+QUIZ_JS = r"""
+(function(){
+  var card=document.querySelector('.quiz-card');
+  if(!card){return;}
+  var status=card.querySelector('.quiz-status');
+  var submissionBox=card.querySelector('.quiz-submission');
+  var submitBtn=card.querySelector('.quiz-submit');
+  var copyBtn=card.querySelector('.quiz-copy');
+  var revealBtn=card.querySelector('.quiz-reveal');
+  var storageKey='teacher-quiz:'+(card.dataset.course||'')+':'+(card.dataset.unit||'');
+
+  function questions(){
+    return Array.prototype.slice.call(card.querySelectorAll('.quiz-question'));
+  }
+  function collect(){
+    var answers=[];
+    questions().forEach(function(q){
+      var qid=q.getAttribute('data-qid')||'';
+      var checked=q.querySelector('input[type=radio]:checked');
+      if(checked){
+        answers.push({id:qid,value:checked.value});
+      }else{
+        var ta=q.querySelector('textarea');
+        answers.push({id:qid,value:ta?ta.value:''});
+      }
+    });
+    return answers;
+  }
+  function payload(){
+    return {
+      course:card.dataset.course||'',
+      unit:card.dataset.unit||'',
+      title:card.dataset.title||'',
+      answers:collect(),
+      submitted_at:new Date().toISOString()
+    };
+  }
+  function submissionText(){
+    var lines=[];
+    if(card.dataset.course){lines.push('课程：'+card.dataset.course);}
+    if(card.dataset.unit){lines.push('单元：'+card.dataset.unit);}
+    if(card.dataset.title){lines.push('标题：'+card.dataset.title);}
+    collect().forEach(function(a){
+      lines.push(a.id+': '+(a.value||'（未作答）'));
+    });
+    return lines.join('\n');
+  }
+  var countEl=card.querySelector('.quiz-count');
+  function updateCount(){
+    if(!countEl){return;}
+    var total=questions().length;
+    var done=collect().filter(function(a){return a.value && a.value.trim();}).length;
+    countEl.textContent='已答 '+done+'/'+total;
+  }
+  function setStatus(msg,cls){
+    if(!status){return;}
+    status.textContent=msg||'';
+    status.className='quiz-status'+(cls?' '+cls:'');
+  }
+  function saveDraft(){
+    try{localStorage.setItem(storageKey,JSON.stringify(collect()));}catch(e){}
+  }
+  function restoreDraft(){
+    var raw=null;
+    try{raw=localStorage.getItem(storageKey);}catch(e){}
+    if(!raw){return;}
+    var draft;
+    try{draft=JSON.parse(raw);}catch(e){return;}
+    if(!Array.isArray(draft)){return;}
+    draft.forEach(function(item){
+      var q=card.querySelector('.quiz-question[data-qid="'+item.id+'"]');
+      if(!q){return;}
+      var radio=q.querySelector('input[type=radio][value="'+item.value+'"]');
+      if(radio){radio.checked=true;return;}
+      var ta=q.querySelector('textarea');
+      if(ta){ta.value=item.value||'';}
+    });
+  }
+  function saveAndCount(){
+    saveDraft();
+    updateCount();
+  }
+  card.addEventListener('change',saveAndCount);
+  card.addEventListener('input',saveAndCount);
+  restoreDraft();
+  updateCount();
+
+  function fallbackCopy(text){
+    if(!submissionBox){return;}
+    submissionBox.hidden=false;
+    submissionBox.value=text;
+    submissionBox.focus();
+    submissionBox.select();
+    try{document.execCommand('copy');setStatus('已复制提交文本，粘贴到聊天发给 AI。','ok');}
+    catch(e){setStatus('请手动复制下面的提交文本。','err');}
+  }
+  if(copyBtn){
+    copyBtn.addEventListener('click',function(){
+      var text=submissionText();
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){
+          setStatus('已复制提交文本，粘贴到聊天发给 AI。','ok');
+        }).catch(function(){fallbackCopy(text);});
+      }else{
+        fallbackCopy(text);
+      }
+    });
+  }
+  if(revealBtn){
+    revealBtn.addEventListener('click',function(){
+      var all=Array.prototype.slice.call(card.querySelectorAll('details.quiz-answer'));
+      var anyClosed=all.some(function(d){return !d.open;});
+      all.forEach(function(d){d.open=anyClosed;});
+      revealBtn.textContent=anyClosed?'收起参考答案':'查看参考答案';
+    });
+  }
+  if(submitBtn){
+    submitBtn.addEventListener('click',function(){
+      var base='';
+      if(location.protocol==='file:'){
+        base=card.dataset.serverUrl||'';
+      }else{
+        base=location.origin;
+      }
+      if(!base){
+        setStatus('没有检测到本地服务，请点“复制提交文本”发到聊天。','err');
+        fallbackCopy(submissionText());
+        return;
+      }
+      setStatus('正在提交…');
+      fetch(base.replace(/\/$/,'')+'/api/answers',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload())
+      }).then(function(r){
+        if(!r.ok){throw new Error('HTTP '+r.status);}
+        return r.json();
+      }).then(function(){
+        setStatus('已提交！去聊天告诉 AI：答好了。','ok');
+      }).catch(function(){
+        setStatus('提交失败（本地服务未启动？）。已生成提交文本，请复制到聊天。','err');
+        fallbackCopy(submissionText());
+      });
+    });
+  }
+})();
+"""
+
+DECK_JS = r"""
+(function(){
+  var deck=document.querySelector('.deck');
+  if(!deck){return;}
+  var steps=Array.prototype.slice.call(deck.querySelectorAll('.deck-step'));
+  if(!steps.length){return;}
+  var links=Array.prototype.slice.call(document.querySelectorAll('.deck-toc a[data-step]'));
+  var bar=deck.querySelector('.deck-progress > i');
+  var counter=deck.querySelector('.deck-counter');
+  var readEl=deck.querySelector('.deck-read');
+  var prev=deck.querySelector('.deck-prev');
+  var next=deck.querySelector('.deck-next');
+  var current=0;
+  var visited={};
+  var visitKey='teacher-deck:'+location.pathname;
+  try{visited=JSON.parse(localStorage.getItem(visitKey)||'{}')||{};}catch(e){visited={};}
+  function saveVisited(){
+    try{localStorage.setItem(visitKey,JSON.stringify(visited));}catch(e){}
+  }
+  function renderVisited(){
+    var count=0;
+    links.forEach(function(a,i){
+      var seen=!!visited[i];
+      a.classList.toggle('visited',seen);
+      if(seen){count++;}
+    });
+    if(readEl){readEl.textContent='已读 '+count+'/'+steps.length;}
+  }
+  function markVisited(index){
+    if(!visited[index]){visited[index]=true;saveVisited();}
+    renderVisited();
+  }
+  function show(index,scroll){
+    current=Math.max(0,Math.min(steps.length-1,index));
+    steps.forEach(function(step,i){
+      var active=i===current;
+      step.classList.toggle('active',active);
+      step.setAttribute('aria-hidden',active?'false':'true');
+    });
+    links.forEach(function(a,i){
+      a.classList.toggle('active',i===current);
+      if(i===current){a.setAttribute('aria-current','step');}else{a.removeAttribute('aria-current');}
+    });
+    if(bar){bar.style.width=((current+1)/steps.length*100)+'%';}
+    if(counter){counter.textContent=(current+1)+' / '+steps.length;}
+    markVisited(current);
+    if(prev){prev.disabled=current===0;}
+    if(next){next.disabled=current===steps.length-1;}
+    try{history.replaceState(null,'','#step-'+(current+1));}catch(e){}
+    if(scroll){window.scrollTo({top:0,behavior:'smooth'});}
+  }
+  if(prev){prev.addEventListener('click',function(){show(current-1,true);});}
+  if(next){next.addEventListener('click',function(){show(current+1,true);});}
+  links.forEach(function(a,i){
+    a.addEventListener('click',function(ev){ev.preventDefault();show(i,true);});
+  });
+  document.addEventListener('keydown',function(ev){
+    if(ev.target && /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)){return;}
+    if(ev.key==='ArrowLeft'){show(current-1,true);}
+    if(ev.key==='ArrowRight'){show(current+1,true);}
+  });
+  var match=/^#step-(\d+)$/.exec(location.hash||'');
+  renderVisited();
+  show(match?parseInt(match[1],10)-1:0,false);
+})();
+"""
+
+VIVID_JS = r"""
+(function(){
+  var root=document.documentElement;
+  var themeBtn=document.getElementById('theme-btn');
+  var themeKey='teacher-theme';
+  var modes=['auto','light','dark'];
+  var themeLabels={auto:'主题：自动',light:'主题：浅色',dark:'主题：深色'};
+  function applyTheme(mode){
+    if(mode==='auto'){root.removeAttribute('data-theme');}
+    else{root.setAttribute('data-theme',mode);}
+    if(themeBtn){themeBtn.textContent=themeLabels[mode]||themeLabels.auto;}
+    try{localStorage.setItem(themeKey,mode);}catch(e){}
+  }
+  var saved='auto';
+  try{saved=localStorage.getItem(themeKey)||'auto';}catch(e){}
+  applyTheme(saved);
+  if(themeBtn){
+    themeBtn.addEventListener('click',function(){
+      var idx=modes.indexOf(saved);
+      saved=modes[(idx+1)%modes.length];
+      applyTheme(saved);
+    });
+  }
+
+  Array.prototype.slice.call(document.querySelectorAll('.flip-card')).forEach(function(card){
+    function toggle(){card.classList.toggle('flipped');}
+    card.addEventListener('click',function(ev){
+      if(ev.target && ev.target.closest && ev.target.closest('a')){return;}
+      toggle();
+    });
+    card.addEventListener('keydown',function(ev){
+      if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();toggle();}
+    });
+  });
+
+  Array.prototype.slice.call(document.querySelectorAll('pre.code')).forEach(function(pre){
+    var btn=document.createElement('button');
+    btn.type='button';
+    btn.className='code-copy';
+    btn.textContent='复制';
+    btn.addEventListener('click',function(){
+      var code=pre.querySelector('code');
+      var text=code?code.textContent:'';
+      function done(){btn.textContent='已复制';setTimeout(function(){btn.textContent='复制';},1400);}
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done).catch(function(){});
+      }else{
+        var ta=document.createElement('textarea');
+        ta.value=text;document.body.appendChild(ta);ta.select();
+        try{document.execCommand('copy');done();}catch(e){}
+        document.body.removeChild(ta);
+      }
+    });
+    pre.appendChild(btn);
+  });
+})();
+"""
+
+
+DEFAULT_SERVER_URL = "http://127.0.0.1:8765"
+
+
+def _escape(value: Any) -> str:
+    return html.escape(str(value or ""), quote=True)
+
+
+def _strip_tags(value: str) -> str:
+    return html.unescape(re.sub(r"<[^>]+>", "", value or "")).strip()
+
+
+def render_quiz_card(
+    quiz: Optional[Dict[str, Any]],
+    meta: Dict[str, Any],
+    server_url: str = DEFAULT_SERVER_URL,
+) -> str:
+    """把 ```quiz JSON 渲染成答题卡；答案默认折叠。"""
+    if not isinstance(quiz, dict):
+        return ""
+    questions = quiz.get("questions")
+    if not isinstance(questions, list) or not questions:
+        return ""
+
+    blocks: List[str] = []
+    for idx, question in enumerate(questions, 1):
+        if not isinstance(question, dict):
+            continue
+        qid = str(question.get("id") or "Q%d" % idx)
+        qtype = str(question.get("type") or "text").lower()
+        prompt = _inline(str(question.get("prompt") or ""))
+        options = question.get("options")
+        if qtype == "choice" and isinstance(options, list) and options:
+            opts: List[str] = []
+            for opt_idx, option in enumerate(options):
+                label = chr(ord("A") + opt_idx) if opt_idx < 26 else str(opt_idx + 1)
+                if isinstance(option, dict):
+                    value = str(option.get("value") or label)
+                    text = str(option.get("text") or option.get("label") or value)
+                else:
+                    value = label
+                    text = str(option)
+                opts.append(
+                    '<label class="quiz-option">'
+                    '<input type="radio" name="%s" value="%s" data-qid="%s">'
+                    '<span class="opt-letter">%s</span><span>%s</span></label>'
+                    % (
+                        _escape(qid),
+                        _escape(value),
+                        _escape(qid),
+                        _escape(label),
+                        _inline(text),
+                    )
+                )
+            body = '<div class="quiz-options">%s</div>' % "".join(opts)
+        else:
+            body = (
+                '<textarea class="quiz-text" data-qid="%s" '
+                'placeholder="在这里写答案或关键步骤；也可以只写你的思路"></textarea>'
+                % _escape(qid)
+            )
+        answer = question.get("answer")
+        explanation = str(question.get("explanation") or "").strip()
+        answer_parts: List[str] = []
+        if answer not in (None, ""):
+            answer_parts.append("<p><strong>答案：</strong>%s</p>" % _inline(str(answer)))
+        if explanation:
+            answer_parts.append("<p>%s</p>" % _inline(explanation))
+        answer_html = ""
+        if answer_parts:
+            answer_html = (
+                '<details class="quiz-answer"><summary>参考答案</summary>'
+                '<div class="quiz-explanation">%s</div></details>'
+                % "".join(answer_parts)
+            )
+        blocks.append(
+            '<div class="quiz-question" data-qid="%s" data-qtype="%s">'
+            '<div class="quiz-q-title">第 %d 题</div>'
+            '<div class="quiz-prompt">%s</div>%s%s</div>'
+            % (_escape(qid), _escape(qtype), idx, prompt, body, answer_html)
+        )
+
+    if not blocks:
+        return ""
+    course = _escape(meta.get("course"))
+    unit = _escape(meta.get("unit") or meta.get("order") or "")
+    title = _escape(meta.get("title"))
+    return (
+        '<section class="quiz-card" data-course="%s" data-unit="%s" data-title="%s" '
+        'data-server-url="%s">'
+        '<div class="quiz-card-head"><strong>答题卡</strong>'
+        "<span>做完点“提交答案”；若本地服务未启动，点“复制提交文本”发到聊天。</span>"
+        '<span class="quiz-count" data-total="%d">已答 0/%d</span></div>'
+        "<form class=\"quiz-form\" onsubmit=\"return false\">%s</form>"
+        '<div class="quiz-actions">'
+        '<button class="btn btn-primary quiz-submit" type="button">提交答案</button>'
+        '<button class="btn quiz-copy" type="button">复制提交文本</button>'
+        '<button class="btn quiz-reveal" type="button">查看参考答案</button>'
+        "</div>"
+        '<p class="quiz-status" role="status"></p>'
+        '<textarea class="quiz-submission" readonly hidden aria-label="提交文本"></textarea>'
+        "</section>"
+        % (
+            course,
+            unit,
+            title,
+            _escape(server_url),
+            len(blocks),
+            len(blocks),
+            "".join(blocks),
+        )
+    )
+
+
+def _render_deck(content_html: str) -> Tuple[str, List[str]]:
+    """把一个单元的正文拆成步骤；每个 h2 是一步，前面加一个开始页。"""
+    parts = [p for p in re.split(r"(?=<h2\b)", content_html) if p.strip()]
+    preamble = ""
+    sections: List[str] = []
+    if parts and not re.match(r"^\s*<h2\b", parts[0]):
+        preamble = parts[0].strip()
+        parts = parts[1:]
+    sections = parts
+    total = len(sections) + 1
+    labels = ["开始"]
+    for section in sections:
+        match = re.search(r"<h2[^>]*>(.*?)</h2>", section, re.S)
+        labels.append(_strip_tags(match.group(1)) if match else "步骤")
+
+    steps: List[str] = []
+    intro = [
+        '<section class="deck-step active" id="step-1" data-step="0" aria-hidden="false">',
+        '<div class="step-kicker">开始</div>',
+        "<p>本单元共 %d 步。建议按顺序阅读；有疑问随时在聊天里问，做完练习再提交答案。</p>"
+        % total,
+    ]
+    if preamble:
+        intro.append(preamble)
+    intro.append("</section>")
+    steps.append("".join(intro))
+
+    for idx, section in enumerate(sections, 1):
+        steps.append(
+            '<section class="deck-step" id="step-%d" data-step="%d" aria-hidden="true">'
+            '<div class="step-kicker">步骤 %d / %d</div>%s</section>'
+            % (idx + 1, idx, idx, len(sections), section)
+        )
+
+    deck = (
+        '<div class="deck" data-total="%d">'
+        '<div class="deck-top"><div class="deck-progress"><i></i></div>'
+        '<span class="deck-counter">1 / %d</span>'
+        '<span class="deck-read">已读 0/%d</span></div>'
+        '<div class="deck-steps">%s</div>'
+        '<div class="deck-controls">'
+        '<button class="btn deck-prev" type="button" disabled>← 上一步</button>'
+        '<button class="btn btn-primary deck-next" type="button">下一步 →</button>'
+        "</div></div>"
+        % (total, total, total, "".join(steps))
+    )
+    return deck, labels
+
+
+def _render_deck_nav(labels: List[str]) -> str:
+    if not labels:
+        return ""
+    items = []
+    for idx, label in enumerate(labels):
+        items.append(
+            '<li><a href="#step-%d" data-step="%d">%s</a></li>'
+            % (idx + 1, idx, html.escape(label))
+        )
+    return (
+        '<nav class="toc deck-toc" aria-label="课件步骤">'
+        '<p class="toc-title">课件步骤</p><ol>%s</ol></nav>' % "".join(items)
+    )
 
 
 def _render_toc(headings: List[Dict[str, Any]]) -> str:
@@ -917,18 +1792,28 @@ def render_lesson_page(
     prev_entry: Optional[Dict[str, Any]] = None,
     next_entry: Optional[Dict[str, Any]] = None,
     mastery: Optional[Dict[str, Any]] = None,
+    quiz: Optional[Dict[str, Any]] = None,
+    server_url: str = DEFAULT_SERVER_URL,
+    layout: Optional[str] = None,
 ) -> str:
     title = str(meta.get("title") or "未命名单元")
     kind = str(meta.get("kind") or "lesson").strip().lower()
     unit = meta.get("unit") or meta.get("order") or ""
     if kind == "practice":
         unit_label = "练习卷"
+    elif kind == "reteach":
+        unit_label = "补讲"
+    elif kind == "review":
+        unit_label = "复习"
     elif re.fullmatch(r"\d+", str(unit)):
         unit_label = "第 %s 单元" % unit
     elif str(unit):
         unit_label = "单元 %s" % unit
     else:
         unit_label = "讲义"
+    layout = str(layout or meta.get("layout") or ("deck" if kind == "lesson" else "article")).lower()
+    if layout not in ("deck", "article"):
+        layout = "article"
     status = normalize_status(meta.get("status"))
     status_html = ""
     if status:
@@ -953,7 +1838,13 @@ def render_lesson_page(
             level,
             html.escape(status_label),
         )
-    kind_chip = '<span class="chip kind">练习卷</span>' if kind == "practice" else ""
+    kind_chip = ""
+    if kind in ("practice", "reteach", "review"):
+        kind_chip = '<span class="chip kind">%s</span>' % {
+            "practice": "练习卷",
+            "reteach": "补讲",
+            "review": "复习",
+        }[kind]
     objectives = as_list(meta.get("objectives"))
     objectives_html = ""
     if objectives:
@@ -987,7 +1878,23 @@ def render_lesson_page(
             )
         )
 
-    toc_html = _render_toc(headings)
+    quiz_card = render_quiz_card(quiz, meta, server_url)
+    if quiz_card:
+        if "<!--QUIZ-->" in content_html:
+            content_html = content_html.replace("<!--QUIZ-->", quiz_card)
+        else:
+            content_html += quiz_card
+    else:
+        content_html = content_html.replace("<!--QUIZ-->", "")
+
+    if layout == "deck":
+        deck_html, step_labels = _render_deck(content_html)
+        content_html = deck_html
+        toc_html = _render_deck_nav(step_labels)
+        body_class = "layout-deck"
+    else:
+        toc_html = _render_toc(headings)
+        body_class = "layout-article"
     meta_bits = []
     if date_text:
         meta_bits.append('<span class="chip">%s</span>' % date_text)
@@ -1013,12 +1920,13 @@ def render_lesson_page(
 <title>__TITLE__ · __COURSE__</title>
 <style>__CSS__</style>
 </head>
-<body>
+<body class="__BODY_CLASS__">
 <a class="skip" href="#main">跳到正文</a>
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand"><span class="logo">T</span><a href="index.html">__COURSE__</a></div>
     <div class="topbar-actions">
+      <button class="btn" id="theme-btn" type="button">主题：自动</button>
       <button class="btn" id="toggle-answers" type="button">展开全部答案</button>
       <button class="btn" id="print-btn" type="button">打印 / PDF</button>
     </div>
@@ -1051,7 +1959,8 @@ def render_lesson_page(
         "__VERSION__": VERSION,
         "__TITLE__": html.escape(title),
         "__COURSE__": html.escape(course),
-        "__CSS__": COMMON_CSS,
+        "__CSS__": COMMON_CSS + QUIZ_CSS + VIVID_CSS,
+        "__BODY_CLASS__": body_class,
         "__TOC__": toc_html,
         "__UNIT_LABEL__": html.escape(unit_label),
         "__META__": "".join(meta_bits),
@@ -1061,14 +1970,14 @@ def render_lesson_page(
         "__PREV__": prev_html,
         "__NEXT__": next_html,
         "__GENERATED__": date.today().isoformat(),
-        "__JS__": LESSON_JS,
+        "__JS__": LESSON_JS + QUIZ_JS + DECK_JS + VIVID_JS,
     }
     for key, value in replacements.items():
         page = page.replace(key, value)
     return page
 
 
-INDEX_CSS = COMMON_CSS + r"""
+INDEX_CSS = COMMON_CSS + VIVID_CSS + r"""
 .index-shell{max-width:980px;margin:0 auto;padding:34px 20px 70px}
 .index-hero{margin-bottom:24px}
 .index-hero h1{font-size:34px;margin-bottom:8px}
@@ -1453,7 +2362,7 @@ def render_index_page(
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand"><span class="logo">T</span><span>__COURSE__</span></div>
-    <div class="topbar-actions"><button class="btn" id="print-btn" type="button" onclick="window.print()">打印 / PDF</button></div>
+    <div class="topbar-actions"><button class="btn" id="theme-btn" type="button">主题：自动</button><button class="btn" id="print-btn" type="button" onclick="window.print()">打印 / PDF</button></div>
   </div>
 </header>
 <main class="index-shell" id="main">
@@ -1506,7 +2415,7 @@ def render_index_page(
         "__ACTION__HTML__": action_html,
         "__LIST__": list_html,
         "__DIR__": html.escape(course_dir_name or course),
-        "__JS__": INDEX_JS,
+        "__JS__": INDEX_JS + VIVID_JS,
     }
     page = page.replace("__DUE__HTML__", due_html)
     page = page.replace("__WEAK__HTML__", weak_html)
@@ -1741,6 +2650,8 @@ def build_lesson(
     state_path: Optional[Path] = None,
     course_dir_name: Optional[str] = None,
     quiet: bool = False,
+    server_url: str = DEFAULT_SERVER_URL,
+    layout: Optional[str] = None,
 ) -> Dict[str, Path]:
     if not source.exists():
         raise FileNotFoundError("找不到源文件：%s" % source)
@@ -1761,12 +2672,12 @@ def build_lesson(
     course_dir.mkdir(parents=True, exist_ok=True)
 
     kind = str(meta.get("kind") or "lesson").strip().lower()
-    if kind == "practice":
+    if kind in ("practice", "reteach", "review"):
         unit_part = meta.get("parent_unit") or meta.get("unit")
         if re.fullmatch(r"\d+", str(unit_part or "")):
-            stem = "practice-%02d-%s" % (int(str(unit_part)), slugify(meta.get("title")))
+            stem = "%s-%02d-%s" % (kind, int(str(unit_part)), slugify(meta.get("title")))
         else:
-            stem = "practice-%s" % slugify(meta.get("title"))
+            stem = "%s-%s" % (kind, slugify(meta.get("title")))
     else:
         stem = unit_file_stem(meta.get("unit"), meta.get("title"))
     md_path = course_dir / (stem + ".md")
@@ -1785,9 +2696,20 @@ def build_lesson(
 
     renderer = MarkdownRenderer()
     content, headings = renderer.render(strip_leading_h1(body))
+    if renderer.quiz_error:
+        _warn("练习数据解析失败：%s" % renderer.quiz_error)
     mastery_info = _find_mastery_concept(state, meta)
     page = render_lesson_page(
-        meta, content, headings, course, prev_entry, next_entry, mastery_info
+        meta,
+        content,
+        headings,
+        course,
+        prev_entry,
+        next_entry,
+        mastery_info,
+        quiz=renderer.quiz,
+        server_url=server_url,
+        layout=layout,
     )
     html_path.write_text(page, encoding="utf-8")
 
@@ -1805,6 +2727,8 @@ def rebuild_course(
     state_path: Optional[Path] = None,
     course_dir_name: Optional[str] = None,
     quiet: bool = False,
+    server_url: str = DEFAULT_SERVER_URL,
+    layout: Optional[str] = None,
 ) -> List[Path]:
     folder = safe_component(course_dir_name or course)
     course_dir = output_root / folder
@@ -1818,11 +2742,22 @@ def rebuild_course(
         meta, body = parse_frontmatter(_read_text(entry["path"]))
         renderer = MarkdownRenderer()
         content, headings = renderer.render(strip_leading_h1(body))
+        if renderer.quiz_error:
+            _warn("%s：练习数据解析失败：%s" % (entry["path"], renderer.quiz_error))
         prev_entry = entries[idx - 1] if idx > 0 else None
         next_entry = entries[idx + 1] if idx < len(entries) - 1 else None
         mastery_info = _find_mastery_concept(state, meta)
         page = render_lesson_page(
-            meta, content, headings, course, prev_entry, next_entry, mastery_info
+            meta,
+            content,
+            headings,
+            course,
+            prev_entry,
+            next_entry,
+            mastery_info,
+            quiz=renderer.quiz,
+            server_url=server_url,
+            layout=layout,
         )
         html_path = course_dir / entry["html_name"]
         html_path.write_text(page, encoding="utf-8")
@@ -1874,6 +2809,17 @@ def _build_parser() -> argparse.ArgumentParser:
         p.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="输出根目录（默认：讲义）")
         p.add_argument("--course-dir", default=None, help="课程子目录名（默认取课程名）")
         p.add_argument("--state", default=None, help="learning-state.json 路径（可自动发现）")
+        p.add_argument(
+            "--server-url",
+            default=DEFAULT_SERVER_URL,
+            help="答题提交服务地址（默认 http://127.0.0.1:8765）",
+        )
+        p.add_argument(
+            "--layout",
+            choices=["deck", "article"],
+            default=None,
+            help="页面布局：deck 分步课件（讲义默认）/ article 长文",
+        )
         p.add_argument("--quiet", action="store_true", help="不打印生成日志")
 
     build = sub.add_parser("build", help="渲染单个讲义并更新目录")
@@ -1902,11 +2848,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 state_path,
                 args.course_dir,
                 args.quiet,
+                server_url=args.server_url,
+                layout=args.layout,
             )
             return 0 if result else 1
         if args.command == "rebuild":
             rebuild_course(
-                args.course, output_root, state_path, args.course_dir, args.quiet
+                args.course,
+                output_root,
+                state_path,
+                args.course_dir,
+                args.quiet,
+                server_url=args.server_url,
+                layout=args.layout,
             )
             return 0
         if args.command == "index":

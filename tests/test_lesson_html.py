@@ -279,6 +279,135 @@ class BuildTests(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn("还没有讲义", text)
 
+    def test_deck_layout_with_quiz(self):
+        src = self._write(
+            "unit-06.md",
+            """---
+course: 计算机组成原理
+unit: 6
+title: 乘法器
+layout: deck
+kind: lesson
+---
+## 第一步
+概念一
+## 第二步
+概念二
+
+```quiz
+{"questions":[{"id":"Q1","type":"choice","prompt":"选哪个？","options":["甲","乙"],"answer":"B"}]}
+```
+""",
+        )
+        result = lh.build_lesson(
+            "计算机组成原理",
+            src,
+            self.out,
+            quiet=True,
+            server_url="http://127.0.0.1:9999",
+        )
+        page = result["html"].read_text(encoding="utf-8")
+        self.assertIn('<body class="layout-deck">', page)
+        self.assertIn('class="deck"', page)
+        self.assertIn('data-total="3"', page)
+        self.assertIn('class="deck-step', page)
+        self.assertIn('class="quiz-card"', page)
+        self.assertIn('data-server-url="http://127.0.0.1:9999"', page)
+        self.assertIn('data-qid="Q1"', page)
+        self.assertNotIn("language-quiz", page)
+        self.assertNotIn("<!--QUIZ-->", page)
+
+    def test_article_layout_keeps_long_page(self):
+        src = self._write(
+            "unit-07.md",
+            """---
+course: 计算机组成原理
+unit: 7
+title: 浮点数
+layout: article
+kind: lesson
+---
+## 概念
+正文
+""",
+        )
+        result = lh.build_lesson("计算机组成原理", src, self.out, quiet=True)
+        page = result["html"].read_text(encoding="utf-8")
+        self.assertIn('<body class="layout-article">', page)
+        self.assertNotIn('<div class="deck"', page)
+        self.assertIn('class="toc"', page)
+
+    def test_vivid_diagrams_and_interactions(self):
+        src = self._write(
+            "unit-08.md",
+            """---
+course: 计算机组成原理
+unit: 8
+title: 图示
+layout: deck
+kind: lesson
+---
+## 流程
+
+::: flow 取指到写回
+取指 → 译码 → 执行 → 写回
+:::
+
+::: layers 存储层次
+CPU | 快
+内存 | 慢
+:::
+
+::: timeline 发展
+1946 | ENIAC
+1952 | EDVAC
+:::
+
+::: cycle 指令周期
+取指 → 译码 → 执行 → 写回
+:::
+
+::: compare 两种结构
+| 维度 | A | B |
+|---|---|---|
+| 存储 | 同存 | 分开 |
+:::
+
+::: bars 性能
+A: 10
+B: 20
+:::
+
+::: hint 想一想
+先想一想。
+:::
+
+::: flip 位权
+位权是什么？
+---
+基数的幂。
+:::
+""",
+        )
+        result = lh.build_lesson("计算机组成原理", src, self.out, quiet=True)
+        page = result["html"].read_text(encoding="utf-8")
+        for marker in [
+            "diagram-flow",
+            "flow-node",
+            "diagram-layers",
+            "layer-name",
+            "diagram-timeline",
+            "timeline-date",
+            "diagram-cycle",
+            "cycle-edge",
+            "diagram-compare",
+            "diagram-bars",
+            "bar-fill",
+            "details class=\"hint\"",
+            "flip-card",
+        ]:
+            self.assertIn(marker, page)
+
     def test_mastery_index_and_practice_sheet(self):
         src = self._write("unit-04.md", SAMPLE)
         state_path = self._write(
