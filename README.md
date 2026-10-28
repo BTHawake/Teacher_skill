@@ -412,6 +412,8 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 | **返回对话** | 顶部栏 `← 返回对话`：优先聚焦聊天标签，其次 referrer，最后 DSH 根路径 |
 | **DSH 安装提醒** | 检测到 DSH 但缺插件时先提醒安装；8765 明确标注“临时回退” |
 | **临时端口** | `course-server` 降级为兼容模式，不再默认静默启动 |
+| **生成后验活** | `verify_page.py` 验文件完整性 + HTTP 200 + 标题；PASS 才发链接 |
+| **目录去重** | 忽略没有对应 HTML 的旧 `.md`；同一单元只保留最新课件 |
 | **远程链接** | 默认发根相对链接 `/teacher/...`，不再把 `127.0.0.1` 绝对地址发给远程用户 |
 | **绝对 URL** | `dsh_host.py --public-base https://host/...` 生成 `public_url`；`local_url` 只用于本机调试 |
 | **DSH 宿主探测** | `dsh_host.py` 优先探测 `/teacher` 插件，再决定插件/独立服务/静态导出 |
@@ -424,7 +426,7 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 | **动效与交互** | 主题切换、翻转卡、提示折叠、代码复制、SVG 动画 |
 | **自适应掌握度** | Lv0-Lv3；首轮 + 变式都通过才推进 |
 | **复习调度** | 1/3/7/14/30 天；到期 >5 个时本次只做 3 个 |
-| **测试 / CI** | 43 个 unittest；GitHub Actions 跑 Python 3.9-3.12 |
+| **测试 / CI** | 47 个 unittest；GitHub Actions 跑 Python 3.9-3.12 |
 
 ---
 
@@ -691,6 +693,7 @@ teacher-skills/
 ├── scripts/
 │   ├── lesson_html.py                   # Markdown → 分步 HTML 课件 + 答题卡 + 目录（v4.2）
 │   ├── dsh_host.py                      # 探测 DSH 插件/课程服务/空闲端口（v4.2）
+│   ├── verify_page.py                   # 验文件完整性 + HTTP 可打开性（v4.2）
 │   ├── course_server.py                 # 本地课件服务 + 答题卡提交（v4.2）
 │   ├── mastery.py                       # 掌握度/复习/下一步建议引擎（v4.2）
 │   ├── generate_quiz.py                # 练习题生成（按等级/题型）
@@ -705,7 +708,8 @@ teacher-skills/
 │   ├── test_lesson_html.py
 │   ├── test_mastery.py
 │   ├── test_course_server.py
-│   └── test_dsh_host.py
+│   ├── test_dsh_host.py
+│   └── test_verify_page.py
 │
 ├── examples/                           # 可构建的示例课件/练习
 │   ├── lesson-demo.md

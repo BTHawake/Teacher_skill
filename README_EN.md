@@ -363,6 +363,8 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | **Back to chat** | Topbar `← Back to chat`: focus opener, then referrer, then DSH root |
 | **DSH install reminder** | Detect DSH without `/teacher`; prompt to install, mark 8765 as temporary |
 | **Temporary port** | `course-server` is a compatibility fallback, not silently started |
+| **Post-build check** | `verify_page.py` checks file integrity + HTTP 200 + title; only PASS links are sent |
+| **Directory dedupe** | Ignore old `.md` without HTML; keep only the newest deck per unit |
 | **Remote links** | Send root-relative `/teacher/...`; never send a `127.0.0.1` absolute URL to remote users |
 | **Absolute URL** | `dsh_host.py --public-base https://host/...` builds `public_url`; `local_url` is local-only |
 | **DSH host probe** | `dsh_host.py` prefers the `/teacher` plugin, then falls back to a course server / static export |
@@ -375,7 +377,7 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | **Animations & interactions** | Theme toggle, flip cards, hints, code copy, SVG animations |
 | **Adaptive mastery** | Lv0-Lv3; advance only after first check + variant |
 | **Review schedule** | 1/3/7/14/30 days; when >5 items are due, process only 3 this session |
-| **Tests / CI** | 43 unit tests; GitHub Actions on Python 3.9-3.12 |
+| **Tests / CI** | 47 unit tests; GitHub Actions on Python 3.9-3.12 |
 
 ---
 
@@ -598,6 +600,7 @@ teacher-skills/
 ├── scripts/
 │   ├── lesson_html.py                   # Markdown → step deck + answer card + index (v4.2)
 │   ├── dsh_host.py                      # Probe DSH plugin / course server / free port (v4.2)
+│   ├── verify_page.py                   # Verify file integrity + HTTP reachability (v4.2)
 │   ├── course_server.py                 # Local course server + answer submission (v4.2)
 │   ├── mastery.py                       # Mastery / review / next-step engine (v4.2)
 │   ├── generate_quiz.py                # Quiz generator
@@ -612,7 +615,8 @@ teacher-skills/
 │   ├── test_lesson_html.py
 │   ├── test_mastery.py
 │   ├── test_course_server.py
-│   └── test_dsh_host.py
+│   ├── test_dsh_host.py
+│   └── test_verify_page.py
 │
 ├── examples/                           # Buildable demo deck / exercises
 │   ├── lesson-demo.md

@@ -460,6 +460,27 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
   --server-url "http://127.0.0.1:8765"
 ```
 
+### 生成后必须验活（AI 自己干）
+
+不要“生成完就把链接发出去”。每次都要：
+
+1. 先用 `pwd` 确认当前是课程工作区；路径含 `Teacher_skill` 或 `.dsh/skills` 时不要在这里生成
+2. 用绝对路径输出：`--output-dir "$PWD/讲义"`
+3. build 后看它打印的 `html_path`
+4. 用 `dsh_host.py --json` 得到 `link` 和本地验证地址
+5. 验文件 + 验 HTTP：
+
+```bash
+python scripts/verify_page.py \
+  --file "$PWD/讲义/计算机组成原理/unit-04.html" \
+  --url "http://127.0.0.1:3080/teacher/TeacherSkillEditor/计算机组成原理/unit-04.html"
+```
+
+6. 只有输出 `RESULT: PASS` 才发链接；`FAIL` 时先修路径/服务，不要发坏链接
+7. 有浏览器工具时，再打开一次并截图确认不是空白页
+
+独立 8765 模式把 `--url` 换成 `http://127.0.0.1:8765/...`。
+
 ### 课件结构
 
 - 一个 `## 二级标题` = 一个步骤（step）
@@ -569,6 +590,7 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 
 - `scripts/lesson_html.py` — **v4.2**：Markdown → 分步 HTML 课件 + 答题卡 + 课程目录
 - `scripts/dsh_host.py` — **v4.2**：探测 DSH 插件/课程服务/空闲端口，给出链接决策
+- `scripts/verify_page.py` — **v4.2**：验收文件完整性与 HTTP 可打开性，输出 PASS/FAIL
 - `scripts/course_server.py` — **v4.2**：本地课件服务 + 答题卡提交写入 `answers/latest.json`
 - `scripts/mastery.py` — **v4.2**：掌握度记录、复习调度、下一步建议、薄弱点练习目标
 - `scripts/generate_quiz.py` — 自动生成练习题

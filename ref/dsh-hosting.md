@@ -121,6 +121,20 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 
 > `http://127.0.0.1:3080/...` 只对本机浏览器有效，**不要发给远程用户**。
 
+### 发链接前验活
+
+AI 自己识别 workspace 后，必须验文件 + 验 URL，不能只凭 build 成功就发链接：
+
+```bash
+python scripts/verify_page.py \
+  --file "$PWD/讲义/计算机组成原理/unit-04.html" \
+  --url "http://127.0.0.1:3080/teacher/TeacherSkillEditor/计算机组成原理/unit-04.html"
+```
+
+- `RESULT: PASS` 才发链接
+- `FAIL` 先修路径/服务；浏览器工具可用时再截图确认不是空白页
+- 独立 8765 模式把 URL 换成 `http://127.0.0.1:8765/...`
+
 ### 网页里的“返回对话”
 
 课件顶部栏有 `← 返回对话`，只在 DSH `/teacher/` 页面显示：
