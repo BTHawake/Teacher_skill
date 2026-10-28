@@ -659,7 +659,7 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 | **v3.0.0** | HTML 讲义/练习导出 + 课程复习目录；学科插件化（knowledge / methodology 分流）；轻量启动模式；搜索失败优雅降级；单元测试 + CI |
 | **v4.0.0** | **HTML-first：分步 deck 主课堂 + 答题卡提交服务 + 补讲/练习/复习页；动画、主题、翻转卡、图示 DSL（flow/layers/timeline/cycle/compare/bars）；AI 读取 `answers/latest.json` 批改** |
 | **v4.1.0** | **DSH 宿主探测：优先同源 `/teacher` 插件，其次独立课程服务，自动给可直接打开的链接；插件独立仓库 dsh-Teacher-skill；答题卡支持 `--api-path` / workspace / token** |
-| **v4.1.1** | **远程链接修复：默认发根相对 `/teacher/...`，不再发 `127.0.0.1` 绝对地址；需要绝对 URL 时用 `--public-base` 生成 `public_url`** |
+| **v4.1.1** | **远程链接修复：不再发 `127.0.0.1` 绝对地址；当时默认根相对，v4.3.2 已修正为仅根路径可用** |
 | **v4.2.0** | **DSH 缺插件先提醒安装、8765 标注临时回退；网页顶部栏新增 `← 返回对话`（opener → referrer → DSH 根路径）** |
 | **v4.3.0** | **workspace 注册表：AI 用 pwd 判断并写 `~/.dsh/teacher-workspaces.json`；插件去硬编码；fallback 端口由 AI 自选（`--port 0`）；主课件稳定编号 `unit-04`，源文件默认不复制** |
 | **v4.3.1** | **试听反馈修复：公式多行保留、步数统一、移动端顶栏不换行、`--port 0` flush、独立服务文档 URL 修正** |
