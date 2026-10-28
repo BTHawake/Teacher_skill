@@ -143,6 +143,32 @@ Notes:
 - Web tools are `web_search` / `web_fetch`; the pre-lesson search rule is platform-agnostic
 - Open HTML decks directly in a browser, or serve them locally if `file://` is restricted
 
+#### Accessing DSH remotely
+
+The course server binds `127.0.0.1` by default. If you connect to DSH remotely, your browser's `127.0.0.1:8765` points to **your own machine**, not the DSH host. Forward both ports:
+
+```bash
+# SSH tunnel: forward DSH (3080) and course server (8765)
+ssh -L 3080:127.0.0.1:3080 -L 8765:127.0.0.1:8765 user@host
+```
+
+Then:
+
+- Start `python scripts/course_server.py --course "Course" --port 8765` on the DSH host
+- Open `http://127.0.0.1:8765/` in your local browser
+- Build decks with `--server-url` set to the URL your browser actually uses; same-origin pages derive it automatically
+
+Other remote setups:
+
+| Setup | How |
+|-------|-----|
+| VS Code Remote / JetBrains | Forward port `8765` in the Ports panel |
+| Remote desktop | Open the browser inside the remote desktop and use `127.0.0.1:8765` |
+| Tailscale / ZeroTier | Bind the Tailscale IP or use `--host 0.0.0.0`, then open `http://<tailscale-ip>:8765` (private network) |
+| Public tunnel / reverse proxy | Add an `/api/answers` route and authentication; never expose 8765 naked to the internet |
+
+> The answer card derives `/api/answers` from `location.href`, so sub-path reverse proxies work; only `file://` uses `data-server-url`.
+
 ### TRAE
 
 TRAE uses Rules system instead of Skills directory. Copy `SKILL.md` as a rule file:

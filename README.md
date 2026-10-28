@@ -144,6 +144,32 @@ git -C "$HOME\.dsh\skills\teacher" pull --ff-only
 - 联网工具是 `web_search` / `web_fetch`；课前搜索规则已改为平台无关
 - HTML 课件用浏览器直接打开即可；部分工具限制 `file://`，可双击文件或用本地服务
 
+#### 远程连接 DSH 时
+
+课程服务默认只监听 `127.0.0.1`。如果你远程连 DSH，浏览器在本地，`127.0.0.1:8765` 指向的是**你自己的电脑**，不是 DSH 主机。把 8765 和 3080 一起转发即可：
+
+```bash
+# SSH 隧道（把 3080 和 8765 都转发到本地）
+ssh -L 3080:127.0.0.1:3080 -L 8765:127.0.0.1:8765 user@host
+```
+
+然后：
+
+- 在 DSH 主机上启动 `python scripts/course_server.py --course "课程" --port 8765`
+- 本地浏览器打开 `http://127.0.0.1:8765/`
+- 课件生成时 `--server-url` 用你浏览器实际访问的地址；同一来源下脚本会自动推导 API
+
+其他远程方式：
+
+| 方式 | 做法 |
+|------|------|
+| VS Code Remote / JetBrains | 在 Ports 面板转发 `8765` |
+| 远程桌面 | 在远程桌面里打开浏览器，直接访问 `127.0.0.1:8765` |
+| Tailscale / ZeroTier | 服务绑定 Tailscale IP 或用 `--host 0.0.0.0`，访问 `http://<tailscale-ip>:8765`（私有网络） |
+| 公网隧道 / 反向代理 | 增加 `/api/answers` 路由并加鉴权；不要把 8765 直接裸奔到公网 |
+
+> 答题卡会自动按 `location.href` 推导 `/api/answers`，所以通过子路径反代也能提交；用 `file://` 打开时才会用 `data-server-url`。
+
 ### TRAE
 
 TRAE 使用 Rules 系统而非 Skills 目录。将 `SKILL.md` 复制为规则文件：

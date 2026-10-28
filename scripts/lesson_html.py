@@ -1435,19 +1435,22 @@ QUIZ_JS = r"""
   }
   if(submitBtn){
     submitBtn.addEventListener('click',function(){
-      var base='';
-      if(location.protocol==='file:'){
-        base=card.dataset.serverUrl||'';
-      }else{
-        base=location.origin;
-      }
-      if(!base){
+      var url='';
+      try{
+        if(location.protocol==='file:'){
+          var base=card.dataset.serverUrl||'';
+          if(base){url=base.replace(/\/$/,'')+'/api/answers';}
+        }else{
+          url=new URL('api/answers',location.href).href;
+        }
+      }catch(e){url='';}
+      if(!url){
         setStatus('没有检测到本地服务，请点“复制提交文本”发到聊天。','err');
         fallbackCopy(submissionText());
         return;
       }
       setStatus('正在提交…');
-      fetch(base.replace(/\/$/,'')+'/api/answers',{
+      fetch(url,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(payload())
