@@ -2,7 +2,7 @@
 
 > A good teacher isn't someone who gives you answers — it's someone who helps you find them.
 
-[中文](README.md)
+[中文](README.md) · [Installation](#installation) · [Usage](#usage) · [FAQ](#faq) · [GitHub repo](https://github.com/BTHawake/Teacher_skill)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
@@ -115,7 +115,7 @@ In chat, reference with `#teacher`.
 - Node.js 18+ (for Claude Code / Codex CLI)
 - Claude Pro/Max subscription or Anthropic API Key (Claude Code)
 - OpenAI API Key (Codex CLI)
-- Python 3.9+ (optional, only needed for progress tracking scripts)
+- Python 3.9+ (required for HTML lessons, the mastery engine and progress scripts; not needed for chat-only use)
 
 ---
 
@@ -134,6 +134,41 @@ You can also specify a topic directly:
 ```
 /teacher machine learning
 ```
+
+### v3.0 Learning Loop
+
+```
+Diagnose → Teach unit → 3 exercises → Record mastery → Decide
+                                                       ├─ Re-teach
+                                                       ├─ Practice more
+                                                       ├─ Review due items
+                                                       └─ Advance
+```
+
+After each unit, the AI saves the lesson, exercises and answers as:
+
+```
+讲义/{course}/unit-XX-{title}.html
+```
+
+and updates `讲义/{course}/index.html`. The index shows progress, due reviews, weak concepts and the **AI's next step**.
+
+A typical post-lesson exchange:
+
+```
+❯ Unit complete. Try 3 questions first: concept, application, transfer.
+
+❯ (answers)
+
+   ✅ First check passed. Now one new-scenario variant —
+   ❯ (answers)
+
+   ✅ Variant passed too. Mastery recorded as Lv3.
+   📄 Saved: 讲义/Computer Organization/unit-04-进位计数制.html
+   📌 Next review: 2026-11-04
+```
+
+If the first check or the variant fails, the AI does not advance: it re-teaches with another representation, gives a same-type variation, or schedules review for tomorrow.
 
 ### Imitating a Teacher's Style
 
@@ -183,6 +218,22 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | `/update-teacher {slug}` | Append material to evolve profile | `/update-teacher prof-wang` |
 | `/list-teachers` | List all created teaching profiles | `/list-teachers` |
 | `/teacher rollback {v}` | Rollback to a specific version | `/teacher rollback v3` |
+
+---
+
+## v3.0 Changelog
+
+| Capability | Description |
+|------------|-------------|
+| **HTML lessons** | One self-contained HTML per unit under `讲义/{course}/`; auto-maintained `index.html` |
+| **Exercise sheets** | 3 targeted questions for weak points, same folder as lessons, collapsed answers |
+| **Adaptive mastery** | Lv0-Lv3; records exercise results and decides re-teach / practice / review / advance |
+| **Advance gate** | First check + new-scenario variant must both pass |
+| **Review schedule** | 1/3/7/14/30 days; when >5 items are due, process only 3 this session |
+| **Subject plugins** | 10 subjects with `knowledge / methodology` types + 5-step micro-flows |
+| **Lightweight mode** | One concept + one example + one check |
+| **Search fallback** | Continue with a "not web-verified" label when the network is unavailable |
+| **Tests / CI** | 30 unit tests; GitHub Actions on Python 3.9-3.12 |
 
 ---
 
@@ -354,7 +405,7 @@ See `ref/cross-disciplinary-thinking.md` for details.
 
 ```
 teacher-skills/
-├── SKILL.md                              # Main entry: teaching orchestrator + full SOP
+├── SKILL.md                              # Main entry: teaching orchestrator (v3.0)
 ├── README.md                             # Chinese documentation
 ├── README_EN.md                          # English documentation
 ├── LICENSE                               # MIT License
@@ -454,6 +505,8 @@ teacher-skills/
 | AI / AI时代 | `subjects/ai-teacher-SKILL.md` | LLM fundamentals, Prompt engineering, Agents, AI ethics |
 | Feynman Thinking (reverse-distilled) | `subjects/feynman-teacher-SKILL.md` | Don't fool yourself, naming≠understanding, concrete thinking, deep play |
 
+> Since v3.0, every subject file carries `type: knowledge | methodology` metadata and a 5-step micro-flow. Copy `_template-SKILL.md` when adding a subject.
+
 ## Creating New Subjects
 
 Copy the template and create a new subject skill:
@@ -463,6 +516,39 @@ cp subjects/_template-SKILL.md subjects/your-subject-SKILL.md
 ```
 
 Edit `your-subject-SKILL.md` with your subject's unique teaching strategies, common misconceptions, and exercise design. PRs for new subjects are welcome!
+
+---
+
+## FAQ
+
+### Do I need Python?
+
+Not for chat-only use. HTML lessons, the mastery engine and progress scripts require Python 3.9+.
+
+### Where are lessons saved?
+
+Under the workspace root where you started the AI:
+
+```
+讲义/Computer Organization/unit-04-进位计数制.html
+讲义/Computer Organization/index.html
+```
+
+### How do I review?
+
+Open `讲义/{course}/index.html`. Due items, weak concepts and the AI's next step are on the home page. Inside a unit, answers are collapsed by default — try first, then reveal.
+
+### How is mastery calculated?
+
+Lv0 Not mastered / Lv1 Vague / Lv2 Basically mastered / Lv3 Mastered. A first-check pass records Lv2; passing one new-scenario variant raises it to Lv3 and unlocks advancing.
+
+### Is my data uploaded?
+
+No. Learning state, lessons and exercises stay local. `teachers/`, `讲义/` and `.dsh-meow/` are excluded in `.gitignore`.
+
+### Which formats are supported?
+
+PDF, TXT, Markdown, HTML, DOCX, EPUB.
 
 ---
 
