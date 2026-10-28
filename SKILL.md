@@ -10,7 +10,7 @@ description: >
   当用户说"教我"、"帮我学"、"帮我理解"、"模仿XX老师的教学风格"或上传资料要求学习时触发。
   不要在用户只是问一个简单问题时触发——只在涉及系统性学习/教学时激活。
 argument-hint: "[topic or paste materials]"
-version: 4.1.0
+version: 4.1.1
 user-invocable: true
 allowed-tools: Read, Write, Edit, Bash, WebSearch, WebFetch
 triggers:
@@ -598,3 +598,4 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 | **v3.0.0** | HTML 讲义/练习导出 + 课程复习目录；学科插件化（knowledge / methodology 分流）；轻量启动模式；搜索失败优雅降级；单元测试 + CI |
 | **v4.0.0** | **HTML-first：分步 deck 主课堂 + 答题卡提交服务 + 补讲/练习/复习页；动画、主题、翻转卡、图示 DSL（flow/layers/timeline/cycle/compare/bars）；AI 读取 `answers/latest.json` 批改** |
 | **v4.1.0** | **DSH 宿主探测：优先同源 `/teacher` 插件，其次独立课程服务，自动给可直接打开的链接；插件独立仓库 dsh-Teacher-skill；答题卡支持 `--api-path` / workspace / token** |
+| **v4.1.1** | **远程链接修复：默认发根相对 `/teacher/...`，不再发 `127.0.0.1` 绝对地址；需要绝对 URL 时用 `--public-base` 生成 `public_url`** |

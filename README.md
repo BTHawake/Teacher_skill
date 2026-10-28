@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
-[![Version](https://img.shields.io/badge/version-4.1.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.1.1-blue)]()
 [![Subjects](https://img.shields.io/badge/subjects-10-orange)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
 [![Multi-Platform](https://img.shields.io/badge/Multi--Platform-6%20Platforms-orange)]()
@@ -18,7 +18,7 @@
 
 不假设你"应该知道"什么，不急于给答案，不跳过任何一步。每个知识点讲完都会确认你真的懂了，然后再往下走。
 
-**v4.1 核心能力**：**HTML 是主课堂**。每单元生成一个分步 HTML 课件（讲解 + 图示 + 动画 + 答题卡），用户看 HTML、在聊天里答题；AI 读取答题卡提交，按掌握度生成补讲/练习/复习页或下一单元。新增 **DSH 宿主探测**：优先挂到 DSH 自己的 `/teacher/` 插件，远程访问不用转发 8765；没有插件时回退独立课程服务。10 个学科自带执行微流程，按知识型 / 方法论型分流；支持 5 分钟轻量微课。
+**v4.1.1 核心能力**：**HTML 是主课堂**。每单元生成一个分步 HTML 课件（讲解 + 图示 + 动画 + 答题卡），用户看 HTML、在聊天里答题；AI 读取答题卡提交，按掌握度生成补讲/练习/复习页或下一单元。新增 **DSH 宿主探测**：优先挂到 DSH 自己的 `/teacher/` 插件，远程访问不用转发 8765；没有插件时回退独立课程服务。10 个学科自带执行微流程，按知识型 / 方法论型分流；支持 5 分钟轻量微课。
 
 现在支持 **10 个学科** 的专业教学策略：数学、编程、语文、英语、物理、化学、历史、生物、AI、费曼思维。说"我想学会巴菲特的思维方式"会自动搜索匹配 skill 并生成课程。
 
@@ -155,7 +155,7 @@ dsh plugin --profile web add "link:$PWD"
 # 重启 dsh web
 ```
 
-安装后课件挂在 `http://127.0.0.1:3080/teacher/...`，远程访问 DSH 的方式会自动生效，**不需要再转发 8765**。
+安装后课件挂在 DSH 的 `/teacher/` 路径下。本机调试地址是 `http://127.0.0.1:3080/teacher/...`，但**远程要发根相对链接**（如 `/teacher/...`），让浏览器按当前 DSH 域名解析；不要发 `127.0.0.1` 绝对地址。
 
 skill 会先探测：
 
@@ -404,10 +404,12 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
    到目前为止能跟上吗？
 ```
 
-### v4.1 更新日志
+### v4.1.1 更新日志
 
 | 能力 | 说明 |
 |------|------|
+| **远程链接** | 默认发根相对链接 `/teacher/...`，不再把 `127.0.0.1` 绝对地址发给远程用户 |
+| **绝对 URL** | `dsh_host.py --public-base https://host/...` 生成 `public_url`；`local_url` 只用于本机调试 |
 | **DSH 宿主探测** | `dsh_host.py` 优先探测 `/teacher` 插件，再决定插件/独立服务/静态导出 |
 | **DSH 插件（独立仓库）** | [dsh-Teacher-skill](https://github.com/BTHawake/dsh-Teacher-skill)：课件挂到 DSH 3080 的 `/teacher/`，远程访问不用转发 8765 |
 | **HTML-first** | HTML 是主课堂；聊天只做诊断/答疑/批改/决策 |

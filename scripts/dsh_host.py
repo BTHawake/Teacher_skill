@@ -99,6 +99,13 @@ def _safe_name(value: str) -> str:
     return value.strip().replace("/", "-").replace("\\", "-") or "workspace"
 
 
+def _public_base(value: str) -> str:
+    text = str(value or "").strip().rstrip("/")
+    if text.startswith(("http://", "https://")):
+        return text
+    return ""
+
+
 def _install_info() -> Dict[str, Any]:
     return {
         "repo": INSTALL_REPO,
@@ -108,34 +115,38 @@ def _install_info() -> Dict[str, Any]:
     }
 
 
-def _server_result(course: str, workspace: str, server_url: str, encoded_course: str) -> Dict[str, Any]:
+def _server_result(course: str, workspace: str, server_url: str, encoded_course: str, public_base: str) -> Dict[str, Any]:
+    link = "/%s/index.html" % encoded_course
     for base in _candidate_server_urls(server_url):
         health = _json_get(urljoin(base + "/", "api/health"))
         if health and health.get("ok"):
-            return {
+            result = {
                 "mode": "course-server",
                 "reason": "A teacher.skill course server is already running.",
                 "server_url": base,
                 "workspace": workspace,
                 "course": course,
                 "api_path": "/api/answers",
-                "link": "/%s/index.html" % encoded_course,
-                "absolute_url": base + "/%s/index.html" % encoded_course,
+                "link": link,
+                "local_url": base + link,
                 "plugin": None,
                 "install_required": False,
             }
+            if public_base:
+                result["public_url"] = public_base + link
+            return result
 
     port = _free_port()
     base = "http://127.0.0.1:%d" % port
-    return {
+    result = {
         "mode": "course-server",
         "reason": "No running course server found; start a local server on a free port.",
         "server_url": base,
         "workspace": workspace,
         "course": course,
         "api_path": "/api/answers",
-        "link": "/%s/index.html" % encoded_course,
-        "absolute_url": base + "/%s/index.html" % encoded_course,
+        "link": link,
+        "local_url": base + link,
         "suggested_port": port,
         "start_command": (
             'python scripts/course_server.py --course "%s" --port %d'
@@ -145,11 +156,15 @@ def _server_result(course: str, workspace: str, server_url: str, encoded_course:
         "install_required": True,
         "install": _install_info(),
     }
+    if public_base:
+        result["public_url"] = public_base + link
+    return result
 
 
-def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "") -> Dict[str, Any]:
+def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "", public_base: str = "") -> Dict[str, Any]:
     workspace = _safe_name(workspace)
     course = _safe_name(course)
+    public_base = _public_base(public_base)
     encoded_workspace = quote(workspace, safe="")
     encoded_course = quote(course, safe="")
     relative_link = "/teacher/%s/%s/index.html" % (encoded_workspace, encoded_course)
@@ -158,7 +173,7 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "")
     for base in dsh_bases:
         health = _json_get(urljoin(base + "/", "teacher/api/health"))
         if health and health.get("plugin") == PLUGIN_NAME and health.get("ok"):
-            return {
+            result = {
                 "mode": "dsh-plugin",
                 "reason": "DSH teacher plugin is already mounted; use the same DSH origin.",
                 "dsh_url": base,
@@ -166,15 +181,18 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "")
                 "course": course,
                 "api_path": health.get("prefix", "/teacher") + "/api/answers",
                 "link": relative_link,
-                "absolute_url": base + relative_link,
+                "local_url": base + relative_link,
                 "plugin": health,
                 "install_required": False,
             }
+            if public_base:
+                result["public_url"] = public_base + relative_link
+            return result
 
-    server = _server_result(course, workspace, server_url, encoded_course)
+    server = _server_result(course, workspace, server_url, encoded_course, public_base)
     dsh_base = next((base for base in dsh_bases if _http_ok(base + "/")), "")
     if dsh_base:
-        return {
+        result = {
             "mode": "dsh-plugin-missing",
             "reason": "DSH web is reachable, but the /teacher plugin is not mounted.",
             "dsh_url": dsh_base,
@@ -182,12 +200,15 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "")
             "course": course,
             "api_path": "/teacher/api/answers",
             "link": relative_link,
-            "absolute_url": dsh_base + relative_link,
+            "local_url": dsh_base + relative_link,
             "plugin": None,
             "install_required": True,
             "install": _install_info(),
             "fallback": server,
         }
+        if public_base:
+            result["public_url"] = public_base + relative_link
+        return result
     return server
 
 
@@ -197,18 +218,22 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--workspace", default=Path.cwd().name, help="工作区目录名（默认当前目录名）")
     parser.add_argument("--dsh-url", default="", help="DSH Web 地址（默认探测 127.0.0.1:3080）")
     parser.add_argument("--server-url", default="", help="已有 course_server 地址")
+    parser.add_argument("--public-base", default="", help="远程 DSH 的公网根地址，如 https://dsh.example.com；不填只输出根相对链接")
     parser.add_argument("--json", action="store_true", help="输出 JSON")
     args = parser.parse_args(argv)
 
-    result = detect(args.course, args.workspace, args.dsh_url, args.server_url)
+    public_base = args.public_base or os.environ.get("DSH_WEB_PUBLIC_URL") or os.environ.get("DSH_PUBLIC_URL") or ""
+    result = detect(args.course, args.workspace, args.dsh_url, args.server_url, public_base)
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         print("mode: %s" % result["mode"])
         print("reason: %s" % result["reason"])
         print("link: %s" % result.get("link", ""))
-        if result.get("absolute_url"):
-            print("absolute: %s" % result["absolute_url"])
+        if result.get("public_url"):
+            print("public: %s" % result["public_url"])
+        if result.get("local_url"):
+            print("local (only this machine): %s" % result["local_url"])
         if result.get("start_command"):
             print("start: %s" % result["start_command"])
         if result.get("install_required") and result.get("install"):

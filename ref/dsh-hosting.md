@@ -91,13 +91,19 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
 [打开第 4 单元课件](/teacher/TeacherSkillEditor/计算机组成原理/unit-04-进位计数制.html)
 ```
 
-如果知道完整地址，也可以发绝对 URL：
+远程 DSH 用 SSH 隧道/域名反代时，**根相对链接**不需要知道公网域名，浏览器会按当前地址解析。
 
-```
-http://127.0.0.1:3080/teacher/TeacherSkillEditor/计算机组成原理/unit-04-进位计数制.html
+如果必须发绝对 URL（例如远程 DSH 在子路径 `/dsh/`），不要用 `127.0.0.1`；给探测脚本传公网根地址：
+
+```bash
+python scripts/dsh_host.py --course "计算机组成原理" \
+  --workspace "TeacherSkillEditor" \
+  --public-base "https://dsh.example.com/dsh" --json
 ```
 
-远程 DSH 用 SSH 隧道/域名反代时，根相对链接不需要知道公网域名；绝对 URL 只在确认 Host 后使用。
+输出里的 `public_url` 才是远程可用的绝对地址；`local_url` 只用于本机调试。子路径场景还需要反代把 `/dsh/teacher/` 转到插件的 `/teacher/`。
+
+> `http://127.0.0.1:3080/...` 只对本机浏览器有效，**不要发给远程用户**。
 
 ---
 

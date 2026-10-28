@@ -20,7 +20,7 @@ triggers:
   - "考研"
 subject: english
 type: knowledge
-version: 4.1.0
+version: 4.1.1
 ---
 
 # 英语教学策略

@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
-[![Version](https://img.shields.io/badge/version-4.1.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.1.1-blue)]()
 [![Subjects](https://img.shields.io/badge/subjects-10-orange)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
 [![Multi-Platform](https://img.shields.io/badge/Multi--Platform-6%20Platforms-orange)]()
@@ -17,7 +17,7 @@ Throw a document, book, or course at an AI — it will teach you like a patient 
 
 It never assumes you "should know" something, never jumps to the answer, and never skips a step. After each concept, it checks that you truly understand before moving on.
 
-**v4.1 core capabilities**: **HTML is the classroom**. Each unit becomes a step-by-step HTML deck (explanations, diagrams, animations, answer card). Users read the deck and answer in chat; the AI reads the submitted answer card, then generates a reteach / practice / review page or the next unit based on mastery. **DSH host detection** prefers the same-origin `/teacher/` plugin, so remote DSH access needs no 8765 forwarding; otherwise it falls back to a standalone course server. 10 subjects ship with executable micro-flows (knowledge / methodology), plus a 5-minute lightweight micro-lesson.
+**v4.1.1 core capabilities**: **HTML is the classroom**. Each unit becomes a step-by-step HTML deck (explanations, diagrams, animations, answer card). Users read the deck and answer in chat; the AI reads the submitted answer card, then generates a reteach / practice / review page or the next unit based on mastery. **DSH host detection** prefers the same-origin `/teacher/` plugin, so remote DSH access needs no 8765 forwarding; otherwise it falls back to a standalone course server. 10 subjects ship with executable micro-flows (knowledge / methodology), plus a 5-minute lightweight micro-lesson.
 
 Now supports **10 subjects**: Math, Programming, Chinese, English, Physics, Chemistry, History, Biology, AI, and Feynman Thinking.
 
@@ -154,7 +154,7 @@ dsh plugin --profile web add "link:$PWD"
 # restart dsh web
 ```
 
-Decks are then served at `http://127.0.0.1:3080/teacher/...`; the existing remote DSH access works — **no 8765 forwarding**.
+Decks are then served under DSH's `/teacher/` path. The local debug URL is `http://127.0.0.1:3080/teacher/...`, but **send a root-relative link** (e.g. `/teacher/...`) so the browser resolves it against the current DSH domain; do not send a `127.0.0.1` absolute URL to a remote user.
 
 The skill probes first:
 
@@ -356,10 +356,12 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 
 ---
 
-## v4.1 Changelog
+## v4.1.1 Changelog
 
 | Capability | Description |
 |------------|-------------|
+| **Remote links** | Send root-relative `/teacher/...`; never send a `127.0.0.1` absolute URL to remote users |
+| **Absolute URL** | `dsh_host.py --public-base https://host/...` builds `public_url`; `local_url` is local-only |
 | **DSH host probe** | `dsh_host.py` prefers the `/teacher` plugin, then falls back to a course server / static export |
 | **DSH plugin (separate repo)** | [dsh-Teacher-skill](https://github.com/BTHawake/dsh-Teacher-skill): decks under DSH `/teacher/`, no 8765 forwarding |
 | **HTML-first** | HTML is the classroom; chat only diagnoses / answers / grades / decides |

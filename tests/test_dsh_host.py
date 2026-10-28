@@ -20,10 +20,18 @@ class DshHostTests(unittest.TestCase):
             return None
 
         with mock.patch.object(dsh_host, "_json_get", fake_get):
-            result = dsh_host.detect("计算机组成原理", "TeacherSkillEditor", "http://127.0.0.1:3080")
+            result = dsh_host.detect(
+                "计算机组成原理", "TeacherSkillEditor", "http://127.0.0.1:3080",
+                public_base="https://dsh.example.com/dsh",
+            )
         self.assertEqual(result["mode"], "dsh-plugin")
         self.assertEqual(result["api_path"], "/teacher/api/answers")
         self.assertTrue(result["link"].startswith("/teacher/TeacherSkillEditor/"))
+        self.assertEqual(
+            result["public_url"],
+            "https://dsh.example.com/dsh/teacher/TeacherSkillEditor/"
+            "%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BB%84%E6%88%90%E5%8E%9F%E7%90%86/index.html",
+        )
         self.assertFalse(result["install_required"])
 
     def test_uses_running_course_server(self):

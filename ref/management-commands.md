@@ -3,7 +3,7 @@ name: management-commands
 description: >
   teacher-skill 管理命令表、进化模式说明、教学档案结构。
   用户输入管理命令时加载本文件执行对应操作。
-version: 4.1.0
+version: 4.1.1
 ---
 
 # 管理命令表
