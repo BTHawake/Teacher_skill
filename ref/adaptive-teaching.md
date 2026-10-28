@@ -1,9 +1,9 @@
 ---
 name: adaptive-teaching
 description: >
-  teacher.skill v4.0 自适应教学引擎：根据 HTML 答题卡提交与掌握度，
+  teacher.skill v4.1 自适应教学引擎：根据 HTML 答题卡提交与掌握度，
   决定补讲、继续练习、到期复习或推进下一单元。
-version: 4.0.0
+version: 4.1.0
 ---
 
 # 自适应教学引擎（v4.0）
@@ -78,7 +78,7 @@ python scripts/mastery.py record \
 ```json
 {
   "mastery": {
-    "version": "4.0.0",
+    "version": "4.1.0",
     "concepts": {
       "位权展开": {
         "name": "位权展开",

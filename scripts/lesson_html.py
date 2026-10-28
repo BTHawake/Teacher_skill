@@ -38,7 +38,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-VERSION = "4.0.0"
+VERSION = "4.1.0"
 DEFAULT_OUTPUT_DIR = "讲义"
 DEFAULT_STATE_GLOB = "teachers/*/learning-state.json"
 
@@ -1347,6 +1347,7 @@ QUIZ_JS = r"""
   }
   function payload(){
     return {
+      workspace:card.dataset.workspace||'',
       course:card.dataset.course||'',
       unit:card.dataset.unit||'',
       title:card.dataset.title||'',
@@ -1436,8 +1437,11 @@ QUIZ_JS = r"""
   if(submitBtn){
     submitBtn.addEventListener('click',function(){
       var url='';
+      var apiPath=card.dataset.apiPath||'';
       try{
-        if(location.protocol==='file:'){
+        if(apiPath && location.protocol!=='file:'){
+          url=new URL(apiPath,location.href).href;
+        }else if(location.protocol==='file:'){
           var base=card.dataset.serverUrl||'';
           if(base){url=base.replace(/\/$/,'')+'/api/answers';}
         }else{
@@ -1449,10 +1453,12 @@ QUIZ_JS = r"""
         fallbackCopy(submissionText());
         return;
       }
+      var headers={'Content-Type':'application/json'};
+      if(card.dataset.apiToken){headers['x-teacher-token']=card.dataset.apiToken;}
       setStatus('正在提交…');
       fetch(url,{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:headers,
         body:JSON.stringify(payload())
       }).then(function(r){
         if(!r.ok){throw new Error('HTTP '+r.status);}
@@ -1605,10 +1611,43 @@ def _strip_tags(value: str) -> str:
     return html.unescape(re.sub(r"<[^>]+>", "", value or "")).strip()
 
 
+def normalize_api_path(value: Any) -> str:
+    """Keep a URL path stable even when Git Bash rewrites a leading slash to C:/..."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text.startswith(("http://", "https://")):
+        return text
+    posix = text.replace("\\", "/")
+    marker = posix.find("/teacher/")
+    if marker >= 0:
+        return posix[marker:]
+    if posix.startswith("/"):
+        return posix
+    return "/" + posix
+
+
+def _quiz_data_attrs(api_path: str, workspace: str, api_token: str, meta: Dict[str, Any]) -> str:
+    attrs: List[str] = []
+    path = normalize_api_path(api_path or str(meta.get("api_path") or ""))
+    ws = workspace or str(meta.get("workspace") or "")
+    token = api_token or str(meta.get("api_token") or "")
+    if path:
+        attrs.append(' data-api-path="%s"' % _escape(path))
+    if ws:
+        attrs.append(' data-workspace="%s"' % _escape(ws))
+    if token:
+        attrs.append(' data-api-token="%s"' % _escape(token))
+    return "".join(attrs)
+
+
 def render_quiz_card(
     quiz: Optional[Dict[str, Any]],
     meta: Dict[str, Any],
     server_url: str = DEFAULT_SERVER_URL,
+    api_path: str = "",
+    workspace: str = "",
+    api_token: str = "",
 ) -> str:
     """把 ```quiz JSON 渲染成答题卡；答案默认折叠。"""
     if not isinstance(quiz, dict):
@@ -1682,7 +1721,7 @@ def render_quiz_card(
     title = _escape(meta.get("title"))
     return (
         '<section class="quiz-card" data-course="%s" data-unit="%s" data-title="%s" '
-        'data-server-url="%s">'
+        'data-server-url="%s"%s>'
         '<div class="quiz-card-head"><strong>答题卡</strong>'
         "<span>做完点“提交答案”；若本地服务未启动，点“复制提交文本”发到聊天。</span>"
         '<span class="quiz-count" data-total="%d">已答 0/%d</span></div>'
@@ -1700,6 +1739,7 @@ def render_quiz_card(
             unit,
             title,
             _escape(server_url),
+            _quiz_data_attrs(api_path, workspace, api_token, meta),
             len(blocks),
             len(blocks),
             "".join(blocks),
@@ -1798,6 +1838,9 @@ def render_lesson_page(
     quiz: Optional[Dict[str, Any]] = None,
     server_url: str = DEFAULT_SERVER_URL,
     layout: Optional[str] = None,
+    api_path: str = "",
+    workspace: str = "",
+    api_token: str = "",
 ) -> str:
     title = str(meta.get("title") or "未命名单元")
     kind = str(meta.get("kind") or "lesson").strip().lower()
@@ -1881,7 +1924,7 @@ def render_lesson_page(
             )
         )
 
-    quiz_card = render_quiz_card(quiz, meta, server_url)
+    quiz_card = render_quiz_card(quiz, meta, server_url, api_path, workspace, api_token)
     if quiz_card:
         if "<!--QUIZ-->" in content_html:
             content_html = content_html.replace("<!--QUIZ-->", quiz_card)
@@ -2655,6 +2698,9 @@ def build_lesson(
     quiet: bool = False,
     server_url: str = DEFAULT_SERVER_URL,
     layout: Optional[str] = None,
+    api_path: str = "",
+    workspace: str = "",
+    api_token: str = "",
 ) -> Dict[str, Path]:
     if not source.exists():
         raise FileNotFoundError("找不到源文件：%s" % source)
@@ -2669,6 +2715,9 @@ def build_lesson(
         meta["unit"] = meta["order"]
     if not meta.get("course"):
         meta["course"] = course
+    workspace = workspace or str(meta.get("workspace") or Path.cwd().name)
+    api_path = api_path or str(meta.get("api_path") or "")
+    api_token = api_token or str(meta.get("api_token") or "")
 
     folder = safe_component(course_dir_name or course)
     course_dir = output_root / folder
@@ -2713,6 +2762,9 @@ def build_lesson(
         quiz=renderer.quiz,
         server_url=server_url,
         layout=layout,
+        api_path=api_path,
+        workspace=workspace,
+        api_token=api_token,
     )
     html_path.write_text(page, encoding="utf-8")
 
@@ -2732,6 +2784,9 @@ def rebuild_course(
     quiet: bool = False,
     server_url: str = DEFAULT_SERVER_URL,
     layout: Optional[str] = None,
+    api_path: str = "",
+    workspace: str = "",
+    api_token: str = "",
 ) -> List[Path]:
     folder = safe_component(course_dir_name or course)
     course_dir = output_root / folder
@@ -2750,6 +2805,9 @@ def rebuild_course(
         prev_entry = entries[idx - 1] if idx > 0 else None
         next_entry = entries[idx + 1] if idx < len(entries) - 1 else None
         mastery_info = _find_mastery_concept(state, meta)
+        entry_workspace = workspace or str(meta.get("workspace") or Path.cwd().name)
+        entry_api_path = api_path or str(meta.get("api_path") or "")
+        entry_api_token = api_token or str(meta.get("api_token") or "")
         page = render_lesson_page(
             meta,
             content,
@@ -2761,6 +2819,9 @@ def rebuild_course(
             quiz=renderer.quiz,
             server_url=server_url,
             layout=layout,
+            api_path=entry_api_path,
+            workspace=entry_workspace,
+            api_token=entry_api_token,
         )
         html_path = course_dir / entry["html_name"]
         html_path.write_text(page, encoding="utf-8")
@@ -2818,6 +2879,21 @@ def _build_parser() -> argparse.ArgumentParser:
             help="答题提交服务地址（默认 http://127.0.0.1:8765）",
         )
         p.add_argument(
+            "--api-path",
+            default="",
+            help="同源答题 API 路径，例如 /teacher/api/answers（DSH 插件模式）",
+        )
+        p.add_argument(
+            "--workspace",
+            default="",
+            help="工作区目录名（DSH 插件 URL 需要，默认当前目录名）",
+        )
+        p.add_argument(
+            "--api-token",
+            default="",
+            help="DSH 插件 token（可选，写入页面 data-api-token）",
+        )
+        p.add_argument(
             "--layout",
             choices=["deck", "article"],
             default=None,
@@ -2853,6 +2929,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 args.quiet,
                 server_url=args.server_url,
                 layout=args.layout,
+                api_path=args.api_path,
+                workspace=args.workspace,
+                api_token=args.api_token,
             )
             return 0 if result else 1
         if args.command == "rebuild":
@@ -2864,6 +2943,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 args.quiet,
                 server_url=args.server_url,
                 layout=args.layout,
+                api_path=args.api_path,
+                workspace=args.workspace,
+                api_token=args.api_token,
             )
             return 0
         if args.command == "index":

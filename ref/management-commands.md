@@ -3,7 +3,7 @@ name: management-commands
 description: >
   teacher-skill 管理命令表、进化模式说明、教学档案结构。
   用户输入管理命令时加载本文件执行对应操作。
-version: 4.0.0
+version: 4.1.0
 ---
 
 # 管理命令表
@@ -45,7 +45,7 @@ version: 4.0.0
 - `/teacher style` 系列命令仅在启用了风格模仿时有效
 - `/teacher progress` 调用 `scripts/learning_state.py --load` 加载学习状态并展示
 - `/teacher mastery` 调用 `scripts/mastery.py show --state ...`，展示 Lv0-Lv3 掌握度
-- `/teacher serve` 调用 `python scripts/course_server.py --course ... --port 8765`（后台运行）
+- `/teacher serve` 先调用 `scripts/dsh_host.py --json`：有 `/teacher` 插件就直接用；没有才启动 `course_server.py`
 - `/teacher answer` 读取 `讲义/{课程}/answers/latest.json`，逐题批改后调用 `mastery.py record`
 - `/teacher practice` 先调用 `scripts/mastery.py practice --count 3` 取目标，再按 `prompts/practice_template.md` 出题并构建 HTML
 - `/teacher reteach` 按 `prompts/reteach_template.md` 生成补讲页；不覆盖原课件

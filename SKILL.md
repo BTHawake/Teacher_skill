@@ -5,11 +5,12 @@ description: >
   给定文档/书籍/课程资料后，先诊断学习能力（强/中/弱），再生成分步 HTML 课件。
   每单元讲完出 3 道题，用户看 HTML、在聊天里答题；AI 读取答题卡提交，
   根据掌握度决定补讲、继续练习、到期复习或推进下一单元。
+  支持 DSH 宿主探测：优先挂到 DSH 的 /teacher 插件，远程访问不用转发 8765。
   支持模仿名师教学风格、学科插件（知识型/方法论型）与轻量启动模式。
   当用户说"教我"、"帮我学"、"帮我理解"、"模仿XX老师的教学风格"或上传资料要求学习时触发。
   不要在用户只是问一个简单问题时触发——只在涉及系统性学习/教学时激活。
 argument-hint: "[topic or paste materials]"
-version: 4.0.0
+version: 4.1.0
 user-invocable: true
 allowed-tools: Read, Write, Edit, Bash, WebSearch, WebFetch
 triggers:
@@ -25,6 +26,9 @@ triggers:
   - "简单讲讲"
   - "五分钟讲一下"
   - "看讲义"
+  - "打开课件"
+  - "发我链接"
+  - "怎么打不开"
   - "导出讲义"
   - "答好了"
   - "提交答案"
@@ -87,6 +91,8 @@ triggers:
 
 **v4.0 核心变化**：HTML 从"课后讲义"变成"主课堂"。每单元一个分步课件，用户看 HTML、在聊天里答题；答题卡提交到本地服务，AI 读取答案后决定补讲/练习/复习/推进。
 
+**v4.1 核心变化**：生成前先探测宿主。优先挂 DSH 自己的 `/teacher` 插件，用户拿到的是可直接打开的链接；没有插件再回退独立课程服务。
+
 **如果不知道当前该做什么**：看下方的"什么时候做什么事"表。如果用户刚上线，先加载学习状态和到期复习，再打开 `讲义/{课程}/index.html`。
 
 > 新手 AI 最容易犯的错误：在聊天里从头讲到尾，或者生成 HTML 后又把同样内容贴回聊天。**HTML 讲过的，聊天不重复。**
@@ -108,6 +114,7 @@ triggers:
 | **模糊需求：** "我想提升决策能力" / "学会更好的写作" / "帮我变得更有逻辑" 等 | 加载 `ref/teaching-sop.md`，从 **Phase 0A** 开始——先诊断需求，再推荐方向 |
 | **轻量需求：** "简单讲讲XX" / "五分钟讲一下" / "/teacher quick" | 轻量模式：直接生成一张单页 HTML 微课（概念 + 例子 + 1 题），不跑完整 Phase 0-2 |
 | "看讲义" / "我要复习" / "上次学的在哪" | 打开 `讲义/{课程}/index.html`，按到期复习项进入对应课件 |
+| **"打开" / "发我" / "链接呢" / "怎么打不开"** | 先 `python scripts/dsh_host.py --json` 探测宿主，再发**可直接打开的链接**；不要发文件路径 |
 | "再来几道" / "继续练习" / 想做更多题 | 用 `mastery.py practice --count 3` 取薄弱目标，生成**练习页 HTML** 并更新 index |
 | "我掌握得怎么样" / "/teacher mastery" | 用 `mastery.py show` 展示 Lv0-Lv3、薄弱点、下次复习 |
 | "/teacher export" / "把这一单元导出" | 生成/重建当前单元的 HTML 课件，更新 index |
@@ -371,7 +378,7 @@ python scripts/mastery.py practice --state "teachers/课程/learning-state.json"
 
 ---
 
-# HTML 课件（v4.0）：主课堂
+# HTML 课件（v4.1）：主课堂 + 自动选宿主
 
 每单元生成一个**分步课件**，用户看 HTML 学习；聊天只负责答疑、批改和决策。
 
@@ -385,6 +392,57 @@ python scripts/mastery.py practice --state "teachers/课程/learning-state.json"
 └── answers/latest.json             # 答题卡提交（AI 读取）
 ```
 
+### 第一步：探测宿主，不要默认开 8765
+
+```bash
+python scripts/dsh_host.py --course "计算机组成原理" \
+  --workspace "TeacherSkillEditor" --json
+```
+
+按 `mode` 决策：
+
+| mode | 做法 | 发给用户 |
+|------|------|----------|
+| `dsh-plugin` | 用 `/teacher/` 同源挂载 | 根相对链接 `/teacher/...` |
+| `dsh-plugin-missing` | DSH 可达但插件没挂；判断是否安装，不装用 `fallback` | 安装/回退说明 |
+| `course-server`（已有） | 复用现有服务 | 现有 `http://...` 链接 |
+| `course-server`（需启动） | 启动课程服务 | `http://127.0.0.1:<port>/...` |
+
+**优先级**：DSH 插件 > 已有课程服务 > 新开端口。远程 DSH 首选插件，避免 8765 转发。
+
+### 插件模式（远程 DSH 首选）
+
+插件仓库：`git@github.com:BTHawake/dsh-Teacher-skill.git`（独立仓库，不在本 skill 内）。
+
+安装后生成：
+
+```bash
+python scripts/lesson_html.py build --course "计算机组成原理" \
+  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --state "teachers/计算机组成原理/learning-state.json" \
+  --api-path "/teacher/api/answers" \
+  --workspace "TeacherSkillEditor"
+```
+
+发链接：
+
+```markdown
+[打开第 4 单元课件](/teacher/TeacherSkillEditor/计算机组成原理/unit-04-进位计数制.html)
+```
+
+### 独立服务模式
+
+```bash
+# 1. 启动本地课件服务（后台运行）
+python scripts/course_server.py --course "计算机组成原理" --port 8765
+
+# 2. 生成课件
+python scripts/lesson_html.py build --course "计算机组成原理" \
+  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --state "teachers/计算机组成原理/learning-state.json" \
+  --server-url "http://127.0.0.1:8765"
+```
+
 ### 课件结构
 
 - 一个 `## 二级标题` = 一个步骤（step）
@@ -394,17 +452,6 @@ python scripts/mastery.py practice --state "teachers/课程/learning-state.json"
 - 练习：在 Markdown 里放一个 ` ```quiz ` JSON 块，自动生成答题卡
 
 ### 答题与读取
-
-```bash
-# 1. 启动本地课件服务（后台运行）
-python scripts/course_server.py --course "计算机组成原理" --port 8765
-
-# 2. 生成课件（server-url 让 file:// 打开时也能提交）
-python scripts/lesson_html.py build --course "计算机组成原理" \
-  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
-  --state "teachers/计算机组成原理/learning-state.json" \
-  --server-url "http://127.0.0.1:8765"
-```
 
 用户点「提交答案」后，答案写入：
 
@@ -416,7 +463,8 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
 
 ### 聊天发言规范
 
-- 默认 3-5 行：链接 + 先看哪几步 + 做题提醒
+- 默认 3-5 行：**可直接打开的链接** + 先看哪几步 + 做题提醒
+- **不要发文件路径**；发 URL 或根相对链接
 - 不在聊天里重复 HTML 已讲内容
 - 长解释 → 写进补讲页/当前课件，再给链接
 - 用户提问 → 2-3 句答疑；暴露概念缺口 → 生成 `kind: reteach` 补讲页
@@ -428,7 +476,7 @@ python scripts/lesson_html.py rebuild --course "课程" --state "..."
 python scripts/lesson_html.py index --course "课程" --state "..."
 ```
 
-详见 `ref/html-first-teaching.md` 与 `ref/html-lessons.md`。
+详见 `ref/dsh-hosting.md`、`ref/html-first-teaching.md` 与 `ref/html-lessons.md`。
 
 ---
 
@@ -482,11 +530,12 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 - `ref/skill-to-curriculum-guide.md` — 技能教学操作指引
 - `ref/nuwa-absorption.md` — 女娲.skill 吸收分析报告（v2.3）
 - `ref/reverse-distillation-report.md` — 技能教学调研报告（生态分析）
-- `ref/improvement-roadmap.md` — 改进计划与版本路线图（v4.0 更新）
+- `ref/improvement-roadmap.md` — 改进计划与版本路线图（v4.1 更新）
 - `ref/deliberate-practice-research.md` — 刻意练习调研报告（v2.5 设计依据）
 - `ref/forgetting-curve-research.md` — 艾宾浩斯遗忘曲线调研（v2.6 间隔复习设计依据）
 - `ref/unified-extraction-research.md` — 统一提取管道调研（v2.4 设计依据）
 - `ref/html-lessons.md` — **HTML 课件格式指南**（deck/quiz/图示/答题卡/服务/排错）
+- `ref/dsh-hosting.md` — **DSH 宿主选择**（插件/独立服务/静态导出、探测与链接规则）
 - `ref/html-first-teaching.md` — **HTML-first 教学法**（课堂/聊天分工、课件生成、批改与补讲）
 - `ref/adaptive-teaching.md` — **自适应教学引擎**（掌握度、决策规则、练习与复习）
 - `ref/subject-plugins.md` — **学科插件协议**（knowledge / methodology 分流、微流程表）
@@ -501,9 +550,10 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 
 ## 脚本
 
-- `scripts/lesson_html.py` — **v4.0**：Markdown → 分步 HTML 课件 + 答题卡 + 课程目录
-- `scripts/course_server.py` — **v4.0**：本地课件服务 + 答题卡提交写入 `answers/latest.json`
-- `scripts/mastery.py` — **v4.0**：掌握度记录、复习调度、下一步建议、薄弱点练习目标
+- `scripts/lesson_html.py` — **v4.1**：Markdown → 分步 HTML 课件 + 答题卡 + 课程目录
+- `scripts/dsh_host.py` — **v4.1**：探测 DSH 插件/课程服务/空闲端口，给出链接决策
+- `scripts/course_server.py` — **v4.1**：本地课件服务 + 答题卡提交写入 `answers/latest.json`
+- `scripts/mastery.py` — **v4.1**：掌握度记录、复习调度、下一步建议、薄弱点练习目标
 - `scripts/generate_quiz.py` — 自动生成练习题
 - `scripts/evaluate_answer.py` — 评估用户答案并给出反馈
 - `scripts/track_progress.py` — 追踪学习进度
@@ -547,3 +597,4 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 | v2.8.0 | 课前搜索、评估检测系统、应试套路教学法 |
 | **v3.0.0** | HTML 讲义/练习导出 + 课程复习目录；学科插件化（knowledge / methodology 分流）；轻量启动模式；搜索失败优雅降级；单元测试 + CI |
 | **v4.0.0** | **HTML-first：分步 deck 主课堂 + 答题卡提交服务 + 补讲/练习/复习页；动画、主题、翻转卡、图示 DSL（flow/layers/timeline/cycle/compare/bars）；AI 读取 `answers/latest.json` 批改** |
+| **v4.1.0** | **DSH 宿主探测：优先同源 `/teacher` 插件，其次独立课程服务，自动给可直接打开的链接；插件独立仓库 dsh-Teacher-skill；答题卡支持 `--api-path` / workspace / token** |

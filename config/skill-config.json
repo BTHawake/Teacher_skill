@@ -1,5 +1,5 @@
 {
-  "version": "4.0.0",
+  "version": "4.1.0",
   "name": "teacher-skills",
   "description": "AI老师Skill - HTML 主课堂：分步课件、答题卡提交、自适应补讲/练习/复习",
   "author": "teacher-skills",
@@ -131,6 +131,11 @@
       "path": "scripts/course_server.py",
       "description": "本地课件服务 + 答题卡提交（写入 answers/latest.json）",
       "usage": "python scripts/course_server.py --course <课程> --port 8765"
+    },
+    "dsh_host": {
+      "path": "scripts/dsh_host.py",
+      "description": "探测 DSH 插件、课程服务或空闲端口",
+      "usage": "python scripts/dsh_host.py --course <课程> --workspace <工作区名> --json"
     }
   },
   "references": [
@@ -165,6 +170,10 @@
     {
       "path": "ref/html-first-teaching.md",
       "description": "HTML-first 教学法：课堂/聊天分工、课件生成、批改与补讲"
+    },
+    {
+      "path": "ref/dsh-hosting.md",
+      "description": "DSH 宿主选择：插件/独立服务/静态导出"
     }
   ],
   "html_output": {
@@ -183,7 +192,9 @@
       "host": "127.0.0.1",
       "port": 8765,
       "answers_file": "answers/latest.json"
-    }
+    },
+    "api_path": "/teacher/api/answers",
+    "workspace": "auto"
   },
   "adaptive": {
     "enabled": true,
@@ -239,5 +250,13 @@
     "micro_flow": "每个 subjects/*.md 的 frontmatter 含 subject/type/version，正文含 5 步执行微流程",
     "template": "subjects/_template-SKILL.md",
     "html_first": "v4.0：HTML 主课堂；聊天只做诊断/答疑/批改/决策"
+  },
+  "dsh_host": {
+    "probe_script": "scripts/dsh_host.py",
+    "plugin_repo": "git@github.com:BTHawake/dsh-Teacher-skill.git",
+    "plugin_id": "teacher-course",
+    "health_path": "/teacher/api/health",
+    "answers_path": "/teacher/api/answers",
+    "restart_required": true
   }
 }

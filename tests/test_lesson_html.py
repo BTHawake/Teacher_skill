@@ -305,6 +305,8 @@ kind: lesson
             self.out,
             quiet=True,
             server_url="http://127.0.0.1:9999",
+            api_path="/teacher/api/answers",
+            workspace="TeacherSkillEditor",
         )
         page = result["html"].read_text(encoding="utf-8")
         self.assertIn('<body class="layout-deck">', page)
@@ -313,9 +315,19 @@ kind: lesson
         self.assertIn('class="deck-step', page)
         self.assertIn('class="quiz-card"', page)
         self.assertIn('data-server-url="http://127.0.0.1:9999"', page)
+        self.assertIn('data-api-path="/teacher/api/answers"', page)
+        self.assertIn('data-workspace="TeacherSkillEditor"', page)
         self.assertIn('data-qid="Q1"', page)
         self.assertNotIn("language-quiz", page)
         self.assertNotIn("<!--QUIZ-->", page)
+
+    def test_normalize_api_path_repairs_msys_rewrite(self):
+        self.assertEqual(lh.normalize_api_path("/teacher/api/answers"), "/teacher/api/answers")
+        self.assertEqual(
+            lh.normalize_api_path(r"C:/Users/wake/.dsh/profiles/web/node_modules/x/teacher/api/answers"),
+            "/teacher/api/answers",
+        )
+        self.assertEqual(lh.normalize_api_path("teacher/api/answers"), "/teacher/api/answers")
 
     def test_article_layout_keeps_long_page(self):
         src = self._write(

@@ -1,9 +1,9 @@
 ---
 name: html-first-teaching
 description: >
-  teacher.skill v4.0 HTML-first 教学法：HTML 是主课堂，
+  teacher.skill v4.1 HTML-first 教学法：HTML 是主课堂，
   聊天只做学情诊断、答疑、批改与下一步决策。
-version: 4.0.0
+version: 4.1.0
 ---
 
 # HTML-first 教学法（v4.0）
@@ -67,27 +67,37 @@ version: 4.0.0
 - 一个 ` ```quiz ` JSON 块（3 题：概念/应用/迁移）
 - 一句“看图说话”，告诉用户这张图在解释什么
 
-然后：
+然后先探测宿主：
+
+```bash
+python scripts/dsh_host.py --course "计算机组成原理" \
+  --workspace "TeacherSkillEditor" --json
+```
+
+- `dsh-plugin`：加 `--api-path "/teacher/api/answers" --workspace "TeacherSkillEditor"`，走同源 `/teacher/`
+- `course-server`：加 `--server-url "http://127.0.0.1:<port>"`
+- 插件缺失：按 `ref/dsh-hosting.md` 判断是否安装；不装就回退
 
 ```bash
 python scripts/lesson_html.py build \
   --course "计算机组成原理" \
   --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
   --state "teachers/计算机组成原理/learning-state.json" \
-  --server-url "http://127.0.0.1:8765"
+  --api-path "/teacher/api/answers" \
+  --workspace "TeacherSkillEditor"
 ```
 
 ### Step 4：聊天只发“导览”
 
-生成后，聊天回复控制在 3-5 行：
+生成后，聊天回复控制在 3-5 行，且给**可直接打开的链接**：
 
 ```
 第 4 单元课件已生成（共 7 步）：
-http://127.0.0.1:8765/unit-04-进位计数制.html
+[打开第 4 单元](/teacher/TeacherSkillEditor/计算机组成原理/unit-04-进位计数制.html)
 先看第 2-4 步；做完练习点“提交答案”，然后回我一句“答好了”。
 ```
 
-不要贴课件正文，不要重复解释。
+不要发文件路径，不要贴课件正文，不要重复解释。
 
 ### Step 5：用户学习 + 提问
 

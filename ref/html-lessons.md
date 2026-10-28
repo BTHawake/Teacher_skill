@@ -1,9 +1,9 @@
 ---
 name: html-lessons
 description: >
-  teacher.skill v4.0 HTML 课件指南：分步 deck、图示 DSL、
+  teacher.skill v4.1 HTML 课件指南：分步 deck、图示 DSL、
   答题卡、本地提交服务、课程目录与排错。
-version: 4.0.0
+version: 4.1.0
 ---
 
 # HTML 课件指南（v4.0）
@@ -279,6 +279,9 @@ python scripts/lesson_html.py index --course "计算机组成原理" --state "..
 | `--course-dir` | 课程子目录名 |
 | `--state` | learning-state.json 路径 |
 | `--server-url` | 答题提交服务地址，默认 `http://127.0.0.1:8765` |
+| `--api-path` | 同源答题 API，例如 `/teacher/api/answers`（DSH 插件模式） |
+| `--workspace` | DSH 插件 URL 的工作区名，默认当前目录名 |
+| `--api-token` | DSH 插件 token；写入页面 `data-api-token` |
 | `--layout` | `deck` / `article`，覆盖 frontmatter |
 | `--quiet` | 不打印生成日志 |
 
