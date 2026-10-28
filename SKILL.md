@@ -10,7 +10,7 @@ description: >
   当用户说"教我"、"帮我学"、"帮我理解"、"模仿XX老师的教学风格"或上传资料要求学习时触发。
   不要在用户只是问一个简单问题时触发——只在涉及系统性学习/教学时激活。
 argument-hint: "[topic or paste materials]"
-version: 4.3.2
+version: 4.3.3
 user-invocable: true
 allowed-tools: Read, Write, Edit, Bash, WebSearch, WebFetch
 triggers:
@@ -407,18 +407,18 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 
 | mode | 做法 | 发给用户 |
 |------|------|----------|
-| `dsh-plugin` | 用 `/teacher/` 同源挂载 | 有 `share_link` 发它；根路径发 `link`；否则先问 |
+| `dsh-plugin` | 用 `/teacher/` 同源挂载 | DSH 聊天只发 `share_link`；没有就先问 PublicBase |
 | `dsh-plugin-register-required` | 插件已装但 workspace 没注册 | 先 `dsh_register.py`，再 build |
 | `dsh-plugin-missing` | DSH 可达但插件没挂；**先提醒安装**，不静默回退 | 说明 8765 只是临时方案；等用户确认 |
 | `course-server`（已有） | 复用现有服务 | 现有 `http://...` 链接（临时模式） |
 | `course-server`（需启动） | 启动课程服务 | `http://127.0.0.1:<port>/...`（临时模式） |
 
-**链接选择（不要默认根相对）：**
+**链接选择（DSH 聊天不要发根相对）：**
 
+- DSH 聊天里 `/teacher/...` 会被前端当成工作区文件拦截，不发
 - `share_link` 有值 → 发它
-- 没有 `share_link` 且确认 DSH 在根路径 → 发 `link`
-- 子路径或不确定 → 问用户完整 DSH 地址，或传 `--public-base` 后重跑
-- 根相对 `/teacher/...` 只在根路径正确；子路径必须用 `https://host/dsh/teacher/...`
+- 没有 `share_link` → 问用户完整 DSH 地址，或设置 `DSH_PUBLIC_URL` 后重跑
+- `link` / 根相对只用于页面内部、独立 HTML、非 DSH 场景
 - PublicBase 优先级：`--public-base` > `DSH_PUBLIC_URL` / `DSH_WEB_PUBLIC_URL` > 问用户
 
 **注册工作区：**
@@ -523,7 +523,7 @@ python scripts/verify_page.py \
 ### 聊天发言规范
 
 - 默认 3-5 行：**可直接打开的链接** + 先看哪几步 + 做题提醒
-- **不要发文件路径**；发 `share_link`，或确认根路径后的 `/teacher/...`
+- **不要发文件路径**；DSH 聊天只发 `share_link`（绝对 URL）；根相对会被前端拦截
 - 不在聊天里重复 HTML 已讲内容
 - 长解释 → 写进补讲页/当前课件，再给链接
 - 用户提问 → 2-3 句答疑；暴露概念缺口 → 生成 `kind: reteach` 补讲页
@@ -663,4 +663,5 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 | **v4.2.0** | **DSH 缺插件先提醒安装、8765 标注临时回退；网页顶部栏新增 `← 返回对话`（opener → referrer → DSH 根路径）** |
 | **v4.3.0** | **workspace 注册表：AI 用 pwd 判断并写 `~/.dsh/teacher-workspaces.json`；插件去硬编码；fallback 端口由 AI 自选（`--port 0`）；主课件稳定编号 `unit-04`，源文件默认不复制** |
 | **v4.3.1** | **试听反馈修复：公式多行保留、步数统一、移动端顶栏不换行、`--port 0` flush、独立服务文档 URL 修正** |
-| **v4.3.2** | **PublicBase：`dsh_host` 输出 `share_link`/`link_mode`/`base_path`；子路径必须 `--public-base`，根相对只在根路径使用** |
+| **v4.3.2** | **PublicBase：`dsh_host` 输出 `share_link`/`link_mode`/`base_path`；子路径必须 `--public-base`** |
+| **v4.3.3** | **DSH 聊天修正：根相对会被前端当工作区文件拦截；聊天一律发绝对 `share_link`，根路径也要 PublicBase** |

@@ -18,7 +18,7 @@ triggers:
   - "Physics"
 subject: physics
 type: knowledge
-version: 4.3.2
+version: 4.3.3
 ---
 
 # 物理教学策略

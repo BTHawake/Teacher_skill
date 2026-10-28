@@ -24,7 +24,7 @@ triggers:
   - "artificial intelligence"
 subject: ai
 type: knowledge
-version: 4.3.2
+version: 4.3.3
 ---
 
 # AI 时代教学策略

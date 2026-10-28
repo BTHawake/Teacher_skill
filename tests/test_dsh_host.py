@@ -36,6 +36,8 @@ class DshHostTests(unittest.TestCase):
         self.assertFalse(result["temporary"])
         self.assertEqual(result["recommended"], "dsh-plugin")
         self.assertEqual(result["link_mode"], "absolute")
+        self.assertTrue(result["share_required"])
+        self.assertTrue(result["share_ready"])
         self.assertEqual(result["base_path"], "/dsh")
         self.assertEqual(result["share_link"], result["public_url"])
         self.assertIn("/dsh/teacher/", result["share_link"])
@@ -70,7 +72,10 @@ class DshHostTests(unittest.TestCase):
         self.assertEqual(result["mode"], "dsh-plugin")
         self.assertEqual(result["link_mode"], "root-relative")
         self.assertIsNone(result["share_link"])
-        self.assertIn("只在 DSH 挂根路径", result["link_caveat"])
+        self.assertTrue(result["share_required"])
+        self.assertFalse(result["share_ready"])
+        self.assertIn("页面内部", result["link_caveat"])
+        self.assertIn("DSH 聊天", result["share_hint"])
 
     def test_uses_running_course_server(self):
         def fake_get(url, timeout=1.0):

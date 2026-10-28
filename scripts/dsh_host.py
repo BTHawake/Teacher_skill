@@ -116,10 +116,17 @@ def _link_meta(relative_link: str, public_base: str) -> Dict[str, Any]:
         "share_link": public_url or None,
         "link_mode": "absolute" if public_url else "root-relative",
         "share_mode": "absolute" if public_url else None,
+        "share_required": True,
+        "share_ready": bool(public_url),
+        "share_hint": (
+            ""
+            if public_url
+            else "DSH 聊天里不要发根相对链接；请提供用户访问 DSH 的完整地址，或设置 DSH_PUBLIC_URL。"
+        ),
         "link_caveat": (
             ""
             if public_url
-            else "根相对链接只在 DSH 挂根路径时正确；子路径请传 --public-base 生成 share_link。"
+            else "根相对链接只用于页面内部/非 DSH 场景；DSH 聊天会被前端当作工作区文件拦截。"
         ),
     }
 
@@ -293,6 +300,8 @@ def main(argv: List[str] | None = None) -> int:
         print("link_mode: %s" % result.get("link_mode", ""))
         if result.get("share_link"):
             print("share: %s" % result["share_link"])
+        if result.get("share_hint"):
+            print("share_hint: %s" % result["share_hint"])
         if result.get("chat_hint"):
             print("hint: %s" % result["chat_hint"])
         if result.get("link_caveat"):

@@ -18,7 +18,7 @@ triggers:
   - "Biology"
 subject: biology
 type: knowledge
-version: 4.3.2
+version: 4.3.3
 ---
 
 # 生物教学策略

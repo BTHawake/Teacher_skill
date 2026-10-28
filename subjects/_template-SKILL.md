@@ -5,7 +5,7 @@ description: >
   复制此模板到 subjects/ 目录下，修改为具体学科。
 subject: your-subject
 type: knowledge
-version: 4.3.2
+version: 4.3.3
 ---
 
 # [学科名称] 教学策略

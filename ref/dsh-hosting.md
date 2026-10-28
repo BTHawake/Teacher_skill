@@ -26,7 +26,7 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 
 | mode | 含义 | 下一步 |
 |------|------|--------|
-| `dsh-plugin` | DSH 已挂 `/teacher` 插件 | 有 `share_link` 发它；根路径发 `link`；否则问 |
+| `dsh-plugin` | DSH 已挂 `/teacher` 插件 | DSH 聊天只发 `share_link`；没有就问 PublicBase |
 | `dsh-plugin-register-required` | 插件已装，但 workspace 没注册 | 先 `dsh_register.py`，再 build |
 | `dsh-plugin-missing` | DSH 可达，但插件没挂 | 判断是否安装；不装就用 `fallback` |
 | `course-server` | 已有或可启动独立服务 | 启动/复用服务，发绝对 URL |
@@ -119,13 +119,12 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
 
 ### 发给用户
 
-先看 `dsh_host.py` 的输出，不要默认根相对：
+DSH 聊天里 **不要发根相对 `/teacher/...`**：DSH 前端会把它当工作区文件拦截进预览面板，而不是当外链打开。只发绝对 URL。
 
 | 输出 | 发什么 |
 |------|--------|
 | `share_link` 有值（传了 `--public-base`） | 发 `share_link` |
-| 没有 `share_link`，且确认 DSH 在根路径 | 发 `link`（`/teacher/...`） |
-| 没有 `share_link`，且 DSH 在子路径/不确定 | 先问用户 DSH 地址，不要猜 |
+| 没有 `share_link` | 先问用户 DSH 完整地址，或设置 `DSH_PUBLIC_URL` 后重跑；不要发 `link` |
 
 PublicBase 来源（优先级从高到低）：
 
@@ -133,18 +132,23 @@ PublicBase 来源（优先级从高到低）：
 2. 环境变量 `DSH_PUBLIC_URL` 或 `DSH_WEB_PUBLIC_URL`
 3. 问用户；不要从 `127.0.0.1:3080` 推断公网地址
 
-根路径示例：
+`link`（`/teacher/...`）只用于页面内部、独立 HTML、非 DSH 场景；不要贴进 DSH 聊天。
 
-```markdown
-[打开第 4 单元课件](/teacher/TeacherSkillEditor/计算机组成原理/unit-04.html)
-```
-
-子路径必须传公网根地址：
+绝对 URL 示例：
 
 ```bash
 python scripts/dsh_host.py --course "计算机组成原理" \
   --workspace "TeacherSkillEditor" \
-  --public-base "https://dsh.example.com/dsh" --json
+  --public-base "https://host" --json
+# 发 share_link：https://host/teacher/...
+```
+
+子路径同理：
+
+```bash
+python scripts/dsh_host.py --course "计算机组成原理" \
+  --workspace "TeacherSkillEditor" \
+  --public-base "https://host/dsh" --json
 ```
 
 输出里的 `share_link` / `public_url` 才是远程可用的绝对地址；`local_url` 只用于本机调试。子路径场景还需要反代把 `/dsh/teacher/` 转到插件的 `/teacher/`。
@@ -257,5 +261,5 @@ python scripts/lesson_html.py build ... --server-url "http://127.0.0.1:8765"
 | 页面 404 | `workspaceRoot`、`workspace`、`course` 三层路径是否一致 |
 | 答题 401 | 插件配置了 token，但生成时没带 `--api-token` |
 | 链接能开但资源 404 | 确认访问的是 `/teacher/<workspace>/<course>/...`，不是 `/teacher/<course>/...` |
-| 远程打不开 | 确认 DSH 在根路径还是子路径；子路径用 `--public-base` 的 `share_link`；反代转发 `/dsh/teacher/` |
+| 远程打不开 | DSH 聊天不要发根相对；发 `share_link` 绝对 URL；子路径还要反代转发 `/dsh/teacher/` |
 | 插件重复注册 | 重启 DSH；同一 id 只保留一份 |
