@@ -3,7 +3,7 @@ name: teaching-sop
 description: >
   teacher-skill 核心教学流程（Phase 0-5）。包含所有教学步骤、
   工具使用规则、通用规则和用户信号处理。
-version: 2.1.0
+version: 3.0.0
 ---
 
 # 教学工作流（完整 SOP）
@@ -24,6 +24,47 @@ version: 2.1.0
 
 > 如果用户已经提供资料，Phase 0 只在弱/中基础时执行。强基础用户可以直接从 Phase 1 快速诊断开始。
 
+## 学科类型分流（v3.0）
+
+加载学科子 Skill 后，先读 frontmatter 的 `type`，再决定教学路径：
+
+### knowledge（知识型）
+
+适用：数学、编程、语文、英语、物理、化学、历史、生物、AI。
+
+```
+诊断先修 → 概念/公式 → 例子/实验 → 练习 → 检测 → 迁移
+```
+
+- 讲解以"概念怎么来的、怎么用"为主
+- 检测重点：能否解释、能否在新题里用出来
+- 每个单元至少一个正例 + 一个反例
+
+### methodology（方法论型）
+
+适用：费曼思维等思维方法学科。
+
+```
+识别旧模式 → 制造冲突 → 新模型 → 场景练习 → 习惯固化
+```
+
+- 不要先讲定义和知识体系，先让用户看见旧做法的问题
+- 检测重点：行为是否改变，而不是能否复述名词
+- 每个模型配一个"日常触发点"，让用户离开课堂后还能用
+- 练习必须跨场景；同一场景做对不算掌握
+
+> 学科文件里的「执行微流程（v3.0）」优先于本节默认路径；两者冲突时，以学科文件为准，但理解检查、错误纠正、诚实边界不可省。
+
+## 轻量启动（v3.0）
+
+用户说"简单讲讲 / 五分钟讲一下 / 快速说一下"或 `/teacher quick` 时，不跑完整 Phase 0-2：
+
+1. 一个概念（2-3 段大白话）
+2. 一个例子
+3. 一道检测
+
+结束后问"要不要扩成完整单元"；要，再回到 Phase 1 诊断并纳入路线。详见 `SKILL.md` 的「轻量启动模式」。
+
 ---
 
 # 工具使用规则
@@ -36,6 +77,8 @@ version: 2.1.0
 | 评估答案 | Bash | `python scripts/evaluate_answer.py --answer --expected --level` |
 | 追踪进度 | Bash | `python scripts/track_progress.py --init/--complete/--status` |
 | 管理学习状态 | Bash | `python scripts/learning_state.py --save/--load/--update` |
+| 记录掌握度 / 取建议 | Bash | `python scripts/mastery.py record/advise/due/practice` |
+| 生成 HTML 讲义 | Bash | `python scripts/lesson_html.py build/rebuild/index` |
 | 写入教学档案 | Write | 将生成的 teaching-profile.md 写入 teachers/{slug}/ |
 | 读取教学档案 | Read | 读取已有的 teaching-profile.md |
 
@@ -207,6 +250,9 @@ version: 2.1.0
 - **先学新的** → 跳过复习，直接进入 Phase 2
 - **跳过这次** → 所有到期复习项的 `next_review_at` 推迟 1 天
 
+> **v3.0 复习上限**：到期项超过 5 个时，本次最多处理 3 个，其余明确告知"顺延到下次"。
+> 不要把复习堆到一次做完，也不要因为积压而取消新内容。
+
 ### Step 1.5.3：快速回顾（复习模式）
 
 复习不是重新教学——走快速回顾：
@@ -360,6 +406,57 @@ version: 2.1.0
 - 用户做错的练习
 - 当前能力等级
 
+### Step 3.7：课后练习与自适应调整（v3.0）
+
+**每单元讲完先练习，再决定是否推进。** 详细规则见 `ref/adaptive-teaching.md`。
+
+1. **出 3 题**：概念辨析 / 应用 / 迁移各一题，答案用 `::: answer` 折叠
+2. **批改并记录首轮结果**：
+
+```bash
+python scripts/mastery.py record --state "teachers/{课程}/learning-state.json" \
+  --concept "[概念]" --unit [U4] --kind first --result [pass|partial|fail] \
+  --error "[错误标签]"
+```
+
+3. **首轮通过 → 立即出 1 道换场景变式题**，记录 `--kind variant`
+4. **变式通过 → 才允许推进**；需要标记单元完成时加 `--complete-unit --unit-title "[单元名]"`
+5. **变式未通过 / partial / fail → 不推进**：
+   - fail：换一种讲法重讲（图示/代码/生活例子），不要原题重做
+   - partial：缩小步骤，出 2 道针对性练习
+   - 同一概念连续 3 次未通过：降级/拆更小/换表征，停止加题
+6. **读建议**：
+
+```bash
+python scripts/mastery.py advise --state "teachers/{课程}/learning-state.json"
+```
+
+建议为 `reteach / practice / review / advance`，按建议执行；如果 AI 基于上下文覆盖建议，必须说明理由并记录依据。
+
+7. **用户说"再来几道"**：用 `mastery.py practice --count 3` 取目标，生成练习卷（`kind: practice`）
+
+> **推进门槛（已确认）**：首轮 + 变式都通过。用户坚持跳过时，尊重用户，但记录"跳过验证"，下次复习优先补。
+>
+> **自主权**：单元内重讲/加练/出变式自动决定；跨单元、改路线、砍内容先确认。
+
+### Step 3.8：生成 HTML 讲义（v3.0）
+
+1. 按 `prompts/lesson_template.md` 写本单元 Markdown
+2. 保存到 `讲义/{课程}/unit-XX-{标题}.md`
+3. 生成 HTML 并更新目录：
+
+```bash
+python scripts/lesson_html.py build \
+  --course "[课程]" \
+  --file "讲义/[课程]/unit-XX-[标题].md" \
+  --state "teachers/{课程}/learning-state.json"
+```
+
+4. 如果本轮生成了练习卷，同样用 `build` 生成 `practice-XX-*.html`
+5. 把 `讲义/{课程}/index.html` 路径告诉用户；不要把整页 HTML 贴回聊天
+
+> 格式、callout、排错见 `ref/html-lessons.md`。没有 Python 环境时，仍然保存 Markdown 并告知用户，不要伪造"已生成"。
+
 ---
 
 # Phase 4：阶段性回顾与评估
@@ -373,9 +470,12 @@ version: 2.1.0
 3. **教学效果验证**（v2.1）：出一道客观检测题，验证用户是否真正理解
    - 从 `ref/verification-framework.md` 中选择合适的题目类型（A/B/C）
    - 根据用户能力等级选择：弱→A，中→B，强→C
-   - 检测结果通过 `scripts/learning_state.py --update` 记录
+   - 检测结果通过 `scripts/mastery.py record` 和 `scripts/learning_state.py --update` 记录
 4. **查漏补缺**：根据检测结果，识别薄弱环节并回顾
+   - 用 `python scripts/mastery.py practice --count 3` 取薄弱目标
+   - 同一概念连续 3 次未通过时换讲法，不继续加题
 5. **更新进度**：调用 `scripts/learning_state.py --update` 更新学习状态
+6. **刷新讲义目录**：`python scripts/lesson_html.py index --course "[课程]"`
 
 ---
 
@@ -388,12 +488,13 @@ version: 2.1.0
 2. **能力自评**：让用户自我评估每个知识点的掌握程度
 3. **最终教学效果验证**（v2.1）：出 1-2 道综合性检测题，确认用户是否真正掌握了核心概念
    - 推荐使用类型 C（教授验证），参考 `ref/verification-framework.md`
-   - 检测结果记录到学习状态的 `verification.final_result` 中
+   - 检测结果记录到 `mastery.concepts` 与 `verification.final_result`
    - 如果未通过，回到薄弱环节重新教学
 4. **跨学科复盘**（可选）：问用户"你发现哪些跨学科的联系最让你意外？"
 5. **培养长期习惯**（可选）："以后无论学什么，都试着问自己：'这还像什么？'"
 6. **下一步建议**：推荐进阶学习资源或实践项目
-7. **保存最终状态**：调用 `scripts/learning_state.py --save` 保存完整学习记录
+7. **保存最终状态**：调用 `scripts/mastery.py advise` + `scripts/learning_state.py --save` 保存完整学习记录
+8. **生成复习计划**：用 `讲义/{课程}/index.html` 展示到期复习与薄弱点；按 1/3/7/14/30 天间隔继续复习
 
 ---
 

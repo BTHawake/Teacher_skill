@@ -1,13 +1,20 @@
 {
-  "version": "1.0.0",
+  "version": "3.0.0",
   "name": "teacher-skills",
-  "description": "AI老师Skill - 给定资料后像老师一样教会用户理解内容",
+  "description": "AI老师Skill - 给定资料后像老师一样教会用户理解内容；v3.0 支持 HTML 讲义与自适应教学",
   "author": "teacher-skills",
   "license": "MIT",
   "skill": {
     "entry": "SKILL.md",
     "type": "teaching",
-    "supported_formats": ["pdf", "txt", "md", "html", "docx", "epub"],
+    "supported_formats": [
+      "pdf",
+      "txt",
+      "md",
+      "html",
+      "docx",
+      "epub"
+    ],
     "max_context_units": 50,
     "default_check_interval": 1
   },
@@ -17,21 +24,33 @@
       "icon": "🔴",
       "teaching_ratio": "70%讲解 / 30%练习",
       "check_frequency": "每步检查",
-      "question_types": ["选择题", "判断题", "填空题"]
+      "question_types": [
+        "选择题",
+        "判断题",
+        "填空题"
+      ]
     },
     "intermediate": {
       "label": "中等基础",
       "icon": "🟡",
       "teaching_ratio": "50%讲解 / 50%练习",
       "check_frequency": "每概念检查",
-      "question_types": ["复述题", "应用题", "改错题"]
+      "question_types": [
+        "复述题",
+        "应用题",
+        "改错题"
+      ]
     },
     "advanced": {
       "label": "强基础",
       "icon": "🟢",
       "teaching_ratio": "30%讲解 / 70%练习",
       "check_frequency": "每2-3概念检查",
-      "question_types": ["分析题", "综合题", "设计题"]
+      "question_types": [
+        "分析题",
+        "综合题",
+        "设计题"
+      ]
     }
   },
   "teaching_phases": [
@@ -44,19 +63,32 @@
       "phase": 1,
       "name": "学情诊断",
       "required": true,
-      "sub_steps": ["基本信息收集", "能力快速评估", "告知判断结果"]
+      "sub_steps": [
+        "基本信息收集",
+        "能力快速评估",
+        "告知判断结果"
+      ]
     },
     {
       "phase": 2,
       "name": "制定学习路线",
       "required": true,
-      "sub_steps": ["确定教学顺序", "拆分学习单元", "设定检查点"]
+      "sub_steps": [
+        "确定教学顺序",
+        "拆分学习单元",
+        "设定检查点"
+      ]
     },
     {
       "phase": 3,
       "name": "逐单元教学",
       "required": true,
-      "sub_steps": ["单元导入", "概念讲解", "理解检查", "巩固与过渡"]
+      "sub_steps": [
+        "单元导入",
+        "概念讲解",
+        "理解检查",
+        "巩固与过渡"
+      ]
     },
     {
       "phase": 4,
@@ -84,6 +116,16 @@
       "path": "scripts/track_progress.py",
       "description": "追踪学习进度",
       "usage": "python scripts/track_progress.py --init --topic <主题> --total-units <数量>"
+    },
+    "lesson_html": {
+      "path": "scripts/lesson_html.py",
+      "description": "Markdown 讲义/练习 → 自包含 HTML + 课程 index",
+      "usage": "python scripts/lesson_html.py build|rebuild|index --course <课程> [--file <md>] [--state <state.json>]"
+    },
+    "mastery": {
+      "path": "scripts/mastery.py",
+      "description": "自适应掌握度：记录练习结果、复习计划、下一步建议",
+      "usage": "python scripts/mastery.py record|advise|due|practice|show --state <state.json>"
     }
   },
   "references": [
@@ -102,6 +144,75 @@
     {
       "path": "ref/question-templates.md",
       "description": "各类型题目出题模板"
+    },
+    {
+      "path": "ref/adaptive-teaching.md",
+      "description": "自适应教学引擎：掌握度、决策规则、练习与复习"
+    },
+    {
+      "path": "ref/html-lessons.md",
+      "description": "HTML 讲义/练习格式、生成命令、index 与排错"
+    },
+    {
+      "path": "ref/subject-plugins.md",
+      "description": "学科插件协议：knowledge / methodology 分流"
     }
-  ]
+  ],
+  "html_output": {
+    "enabled": true,
+    "dir": "讲义",
+    "auto_after_unit": true,
+    "answers_collapsed": true,
+    "theme": "auto",
+    "build_command": "python scripts/lesson_html.py build --course {course} --file {file} --state {state}",
+    "rebuild_command": "python scripts/lesson_html.py rebuild --course {course} --state {state}",
+    "index_command": "python scripts/lesson_html.py index --course {course} --state {state}"
+  },
+  "adaptive": {
+    "enabled": true,
+    "advance_requires": [
+      "first_pass",
+      "variant_pass"
+    ],
+    "mastery_levels": [
+      "未掌握",
+      "模糊",
+      "基本掌握",
+      "掌握"
+    ],
+    "review_intervals_days": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "review_batch_limit": 3,
+    "review_backlog_threshold": 5,
+    "practice_default_count": 3,
+    "max_rounds_per_concept": 3,
+    "autonomy": {
+      "within_unit": "auto",
+      "advance_unit": "auto_after_gate",
+      "change_route": "confirm",
+      "skip_verification": "confirm"
+    },
+    "error_tags": [
+      "概念混淆",
+      "步骤遗漏",
+      "计算错误",
+      "读题不完整",
+      "表达不清",
+      "迁移失败",
+      "记忆混淆"
+    ]
+  },
+  "subjects": {
+    "types": [
+      "knowledge",
+      "methodology"
+    ],
+    "micro_flow": "每个 subjects/*.md 的 frontmatter 含 subject/type/version，正文含 5 步执行微流程",
+    "template": "subjects/_template-SKILL.md"
+  }
 }

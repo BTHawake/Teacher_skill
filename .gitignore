@@ -17,3 +17,8 @@ Thumbs.db
 *.html.artifact.json
 teacher-skill-dashboard.html
 index.html
+
+# Local learning data / generated lessons (never commit user data)
+teachers/
+讲义/
+.dsh-meow/

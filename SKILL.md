@@ -4,12 +4,14 @@ description: >
   AI老师：给定文档/书籍/课程资料后，像老师一样教会用户理解内容。
   先诊断学习能力（强/中/弱），再用通俗易懂的方式一步步教学。
   支持模仿名师教学风格——用户提供课程字幕或视频链接，AI 提取并复刻其说话方式。
+  每单元讲完自动生成可离线复习的 HTML 讲义与练习，保存到「讲义/{课程}/」。
+  支持学科插件（知识型 / 方法论型不同教学路径）与轻量启动模式。
   当用户说"教我"、"帮我学"、"帮我理解"、"模仿XX老师的教学风格"或上传资料要求学习时触发。
   不要在用户只是问一个简单问题时触发——只在涉及系统性学习/教学时激活。
 argument-hint: "[topic or paste materials]"
-version: 2.8.0
+version: 3.0.0
 user-invocable: true
-allowed-tools: Read, Write, Edit, Bash
+allowed-tools: Read, Write, Edit, Bash, WebSearch, WebFetch
 triggers:
   - "教我"
   - "帮我学"
@@ -20,6 +22,10 @@ triggers:
   - "模仿"
   - "像XX一样教我"
   - "用XX的风格"
+  - "简单讲讲"
+  - "五分钟讲一下"
+  - "看讲义"
+  - "导出讲义"
   - "teach me"
   - "help me learn"
   - "help me understand"
@@ -59,6 +65,8 @@ triggers:
 
 **核心流程**：Phase 0（接收资料）→ Phase 1（学情诊断）→ Phase 2（定路线）→ Phase 3（逐单元教学）→ Phase 4（阶段性回顾）→ Phase 5（总结）
 
+**v3.0 新增**：每单元讲完，把讲义与练习整理成 Markdown，运行 `scripts/lesson_html.py` 生成自包含 HTML，保存到 `讲义/{课程}/`，并更新 `index.html` 复习目录。详见下方「HTML 讲义」与 `ref/html-lessons.md`。
+
 **如果不知道当前该做什么**：看下方的"什么时候做什么事"表。如果用户刚上线，看看他之前有没有学习状态（teachers/ 目录下），有就加载继续。
 
 > 新手 AI 最容易犯的错误：直接开始讲，跳过了 Phase 1 学情诊断。**不要跳过学情诊断**——不了解用户基础就教学等于白讲。
@@ -70,11 +78,17 @@ triggers:
 | 用户说了什么 | 你应该做什么 |
 |-------------|-------------|
 | "教我XX" / "帮我学XX" / "帮我理解XX" / 上传资料要求学习 | 加载 `ref/teaching-sop.md`，从 **Phase 0** 开始执行完整教学流程 |
-| 已经在上课，当前单元讲完了 | 继续执行当前 Phase 的下一步，参考 `ref/teaching-sop.md` |
-| 用户回来继续学习（之前学过） | 加载学习状态记录，根据状态继续 |
+| 已经在上课，当前单元讲完了 | 继续执行当前 Phase 的下一步，参考 `ref/teaching-sop.md`；**本单元讲完时执行 Phase 3.7-3.8：练习/掌握度 + HTML 讲义** |
+| 用户回来继续学习（之前学过） | 加载学习状态记录，先检查到期复习；继续时打开 `讲义/{课程}/index.html` 作为复习入口 |
 | "我想学会XXX的思维方式" / "我想知道XXX是怎么想的" / "帮我变成XXX那样思考" | 自动搜索 skill → 生成课程 → 开始教学（详见下方引导） |
 | "我想学XX的思维模式" / "XX的思考方式是什么" / 想向某个名人/角色学习 | 同上——搜索匹配的 skill 并启动教学 |
 | **模糊需求：** "我想提升决策能力" / "学会更好的写作" / "帮我变得更有逻辑" 等 | 加载 `ref/teaching-sop.md`，从 **Phase 0A** 开始——先诊断需求，再推荐方向 |
+| **轻量需求：** "简单讲讲XX" / "五分钟讲一下" / "/teacher quick" | 进入**轻量启动模式**——1 个概念 + 1 个例子 + 1 道检测，不跑完整 Phase 0-2 |
+| "看讲义" / "我要复习" / "上次学的在哪" | 打开 `讲义/{课程}/index.html`，按到期复习项进入对应单元；答案默认折叠 |
+| "再来几道" / "继续练习" / 想做更多题 | 用 `mastery.py practice --count 3` 取薄弱目标，出练习卷并更新 index |
+| "我掌握得怎么样" / "/teacher mastery" | 用 `mastery.py show` 展示 Lv0-Lv3、薄弱点、下次复习 |
+| "这块再讲讲" / 练习未通过 | 按自适应建议重讲（换表征/拆小步），不要原题重做 |
+| "/teacher export" / "把这一单元导出" | 执行 Phase 3.8，把当前单元整理成 Markdown 并生成 HTML，更新 index |
 | `/teacher status` / `/teacher reset` 等管理命令 | 参考 `ref/management-commands.md` |
 | **"你讲错了" / "这不对" / "/teacher correct"** | **执行教学错误纠正流程（参考 `ref/teaching-sop.md` 中的"教学错误纠正流程"）** |
 | "这不对" / "补充一下" 等进化命令 | 参考 `ref/teaching-sop.md` 中的进化模式章节 |
@@ -161,23 +175,32 @@ Step 1.4：课程组装
 
 ---
 
-# 课前搜索规则（v2.8 新增）
+# 课前搜索规则（v3.0 修订）
 
-**每次讲课前必须先搜索网络权威资料。** 这是硬性要求，不可跳过。
+**每个新教学单元开讲前，优先用当前平台可用的联网检索工具核对权威资料。** 这是默认要求，不是可选项；但网络不可用时要优雅降级，不能每个单元都硬停课。
 
 ### 搜索要求
 
-- 每个新教学单元开始前，**必须先**通过 WebFetch 搜索至少 **2 个**权威网站
-- 搜索到的资料用于交叉验证教学内容，教学时需标注参考来源
+- 每个新教学单元开始前，至少查 **2 个**权威来源，交叉验证关键概念、数据、公式
+- 当前平台可用的工具（按环境选择）：
+  - Claude Code：`WebSearch` / `WebFetch`
+  - DeepSeek Harness（DSH）：`web_search` / `web_fetch`
+  - Codex / OpenCode / OpenClaw：对应的搜索或抓取工具
+  - 通用兜底：用户资料 > 本地教材 > 搜索引擎链接
+- 用户提供的教材、讲义、真题是**第一优先级**；网络只用于核对与补充，不能用网络内容覆盖用户资料
+- 引用搜索结果时标注来源链接；引用用户资料时标注页码/章节
 
-### 搜索失败处理
+### 搜索失败处理（v3.0）
 
-如果**全部**网络源都搜不到（所有 URL 返回错误或无结果）：
+如果全部网络源都不可用（断网、代理失败、SSRF 拦截、搜索结果为空）：
 
-1. **如实告知用户**：列出所有尝试过的 URL 及其失败原因
-2. **停止讲课**：不能在没有网络验证的情况下继续
-3. **等待指令**：明确告知用户"是否继续讲课，或者更换网络/代理后再试？"
-4. 只有用户明确回复"继续"、"跳过搜索直接讲"等指令后，才能开始讲课
+1. **简洁告知**：用 1-3 句话说明尝试过的工具和失败原因，不要刷屏列几十个 URL
+2. **只问一次**：问用户"是先用现有资料 + 我的知识继续（涉及事实处会标注『未联网核验』），还是先解决网络？"
+3. **记住选择**：用户选"继续"后，本次会话后续单元不再重复询问；用户选"等待"才暂停
+4. **标注不确定性**：继续讲课时，对可能过时或易错的事实、数据、版本信息标注"未联网核验"；核心概念仍按教材讲
+5. **不伪造来源**：没有搜到就不写"参考了某网站"，宁可写"依据教材第 X 章"
+
+> 设计原则：准确性优先，但可用性同样重要。硬停课只应是用户的选择，不应是默认结果。
 
 ### 搜索成功处理
 
@@ -211,7 +234,8 @@ Step 1.4：课程组装
 
 - 统计各单元正确率
 - 薄弱知识点标记，进入下一轮复习时优先出题
-- 全部通过后进入下一单元或大单元继续教学
+- **v3.0**：检测结果用 `scripts/mastery.py record` 记录；按 `ref/adaptive-teaching.md` 决定重讲/继续练习/复习/推进
+- 首轮 + 变式都通过后，才进入下一单元或大单元继续教学
 
 ---
 
@@ -268,11 +292,115 @@ teacher-skill 的教学流程分为 6 个阶段。详细步骤见 `ref/teaching-
 Phase 0:  接收资料 → 分析内容结构
 Phase 0.5: 风格提取（可选，仅模仿名师时执行）
 Phase 1:  学情诊断 → 能力分级
+Phase 1.5: 到期复习检查（回来继续学习时）
 Phase 2:  制定个性化学习路线
 Phase 3:  逐单元教学（核心）
+Phase 3.7: 课后练习 + 掌握度记录 + 自适应调整（v3.0）
+Phase 3.8: 生成 HTML 讲义 + 更新复习目录（v3.0）
 Phase 4:  阶段性回顾与综合练习
 Phase 5:  学习完成总结
 ```
+
+---
+
+# 学科插件（v3.0）
+
+每个 `subjects/*.md` 自带 `subject` / `type` / `version` 元数据和 5 步「执行微流程」。
+
+- 匹配学科后：先读 `type`，再执行该文件的微流程
+- 微流程优先于通用节奏，但**学情诊断、理解检查、纠错、诚实边界**不可跳过
+- 一个会话只加载一个学科；没有微流程的旧文件回退 `ref/teaching-sop.md`
+
+| 类型 | 适用 | 主线 | 检测重点 |
+|------|------|------|---------|
+| **knowledge** | 数学、编程、语文、英语、物理、化学、历史、生物、AI | 概念 → 例子 → 练习 → 检测 → 迁移 | 能否理解并应用 |
+| **methodology** | 费曼思维等思维方法学科 | 识别旧模式 → 制造冲突 → 新模型 → 场景练习 → 习惯固化 | 行为是否真的改变 |
+
+详见 `ref/subject-plugins.md`。
+
+---
+
+# 自适应教学（v3.0）
+
+每单元讲完先练 3 题（概念 / 应用 / 迁移），记录掌握度，再决定下一步：
+
+| 等级 | 判定证据 | 默认动作 |
+|------|---------|---------|
+| Lv0 未掌握 | 答错、说不清、要直接给答案 | 换讲法重讲，不刷题 |
+| Lv1 模糊 | 部分正确、需提示 | 2 道针对性练习 |
+| Lv2 基本掌握 | 首轮检测通过 | 1 道换场景变式 |
+| Lv3 掌握 | 首轮 + 变式都通过 | 推进 + 间隔复习 |
+
+- **推进门槛**：首轮 + 变式都通过（用户已确认）；只做对原题不算
+- **决策顺序**：最近 fail → 重讲；partial → 练习；到期 → 复习（>5 个时只做 3 个，其余顺延）；Lv2 → 变式；全部 Lv3 → 推进
+- **自主权**：单元内重讲/加练/出变式自动决定；跨单元、改路线、砍内容先确认；用户坚持跳过后记录，复习优先补
+- **练习量**：默认 3 题；同一概念连续 3 次未通过 → 停止加题，换表征/降级
+
+```bash
+python scripts/mastery.py record --state "teachers/课程/learning-state.json" \
+  --concept "位权" --unit U4 --kind first --result pass
+python scripts/mastery.py advise --state "teachers/课程/learning-state.json"
+python scripts/mastery.py practice --state "teachers/课程/learning-state.json" --count 3
+```
+
+详见 `ref/adaptive-teaching.md`。
+
+---
+
+# HTML 讲义（v3.0）
+
+每单元生成一份自包含 HTML，保存到 `讲义/{课程}/`：
+
+```
+讲义/计算机组成原理/
+├── index.html                 # 目录：进度、到期复习、薄弱点、AI 建议
+├── unit-04-进位计数制.html     # 讲义 + 练习 + 折叠答案
+└── practice-04-错题变式.html   # 练习卷（kind: practice）
+```
+
+- **自动**：Phase 3.7-3.8 每单元生成（可 `/teacher html off` 关闭）
+- **手动**：`/teacher export`、`/teacher rebuild`、用户说"导出讲义"
+- **格式**：`prompts/lesson_template.md`、`prompts/practice_template.md`
+
+```bash
+python scripts/lesson_html.py build --course "计算机组成原理" \
+  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --state "teachers/计算机组成原理/learning-state.json"
+
+python scripts/lesson_html.py rebuild --course "计算机组成原理" --state "..."
+python scripts/lesson_html.py index --course "计算机组成原理" --state "..."
+```
+
+输出离线可用、答案默认折叠、可打印/PDF；index 显示单元数、已完成、待复习、薄弱知识点、到期清单和 AI 建议下一步。
+详见 `ref/html-lessons.md`。
+
+---
+
+# 轻量启动模式（v3.0）
+
+不是每次学习都需要完整 Phase 0-5。用户只想快速搞懂一个概念时，走轻量模式，降低启动门槛。
+
+### 触发
+
+- 用户说"简单讲讲XX"、"五分钟讲一下"、"快速说一下"
+- 用户问一个单独的概念题，但语气像"想学"而不是"只要答案"
+- `/teacher quick`
+
+### 三步微课
+
+1. **一个概念**：2-3 段大白话，先讲"是什么/为什么"，不铺开知识体系
+2. **一个例子**：一个生活或代码例子，让概念落地
+3. **一道检测**：1 道小题，答完给反馈；错了就换一种说法再讲一次
+
+### 结束后
+
+问一句："要不要把这块扩成完整单元？" 用户要，就回到 Phase 1 做学情诊断并纳入路线；不要，就停在这里，不强行加课。
+
+### 不使用轻量模式的情况
+
+- 用户明确在备考 / 要覆盖完整考纲 / 已经在上系统课
+- 主题需要前置知识链（如微积分、编译原理）——先诊断再决定
+- 用户一次抛出多个概念——拆开，逐个走完整流程
 
 ---
 
@@ -294,13 +422,24 @@ Phase 5:  学习完成总结
 - `ref/skill-to-curriculum-guide.md` — 技能教学操作指引
 - `ref/nuwa-absorption.md` — 女娲.skill 吸收分析报告（v2.3）
 - `ref/reverse-distillation-report.md` — 技能教学调研报告（生态分析）
-- `ref/improvement-roadmap.md` — 改进计划与版本路线图
+- `ref/improvement-roadmap.md` — 改进计划与版本路线图（v3.0 更新）
 - `ref/deliberate-practice-research.md` — 刻意练习调研报告（v2.5 设计依据）
 - `ref/forgetting-curve-research.md` — 艾宾浩斯遗忘曲线调研（v2.6 间隔复习设计依据）
 - `ref/unified-extraction-research.md` — 统一提取管道调研（v2.4 设计依据）
+- `ref/html-lessons.md` — **HTML 讲义完整指南**（格式、callout、答案折叠、index、状态映射、排错）
+- `ref/adaptive-teaching.md` — **自适应教学引擎**（掌握度、决策规则、练习与复习）
+- `ref/subject-plugins.md` — **学科插件协议**（knowledge / methodology 分流、微流程表）
+
+## 提示词模板
+
+- `prompts/lesson_template.md` — 单元讲义 Markdown 模板（frontmatter + 讲解 + 练习 + 答案）
+- `prompts/practice_template.md` — 练习卷 Markdown 模板（薄弱点变式 + 折叠答案）
+- `prompts/intake.md` / `prompts/style-extractor.md` / `prompts/teaching_builder.md` 等 — 教学档案相关模板
 
 ## 脚本
 
+- `scripts/lesson_html.py` — **v3.0**：Markdown → 自包含 HTML + 课程目录 + 学习状态集成
+- `scripts/mastery.py` — **v3.0**：掌握度记录、复习调度、下一步建议、薄弱点练习目标
 - `scripts/generate_quiz.py` — 自动生成练习题
 - `scripts/evaluate_answer.py` — 评估用户答案并给出反馈
 - `scripts/track_progress.py` — 追踪学习进度
@@ -308,23 +447,24 @@ Phase 5:  学习完成总结
 - `scripts/skill_writer.py` — 教学档案文件管理器
 - `scripts/reverse_distill.py` — 技能教学分析工具（v2.1）
 - `scripts/extract_subtitle.py` — 从视频链接/本地文件提取字幕
+- `tests/` — 单元测试（`python -m unittest discover -s tests`）
 
 ## 学科专用教学策略
 
-| 学科 | 文件 | 触发词 |
-|------|------|--------|
-| **数学** | `subjects/math-teacher-SKILL.md` | 数学、公式、计算、证明、方程、函数、微积分、概率 |
-| **编程** | `subjects/programming-teacher-SKILL.md` | 编程、代码、Python、JavaScript、开发、算法、数据结构 |
-| **语文** | `subjects/chinese-teacher-SKILL.md` | 语文、文言文、古诗、阅读、写作、作文、文学 |
-| **英语** | `subjects/english-teacher-SKILL.md` | 英语、英文、语法、单词、雅思、托福、四六级 |
-| **物理** | `subjects/physics-teacher-SKILL.md` | 物理、力学、电学、热学、光学、运动、牛顿 |
-| **化学** | `subjects/chemistry-teacher-SKILL.md` | 化学、反应、方程式、配平、酸碱、有机化学 |
-| **历史** | `subjects/history-teacher-SKILL.md` | 历史、朝代、古代史、近代史、时间线、历史人物 |
-| **生物** | `subjects/biology-teacher-SKILL.md` | 生物、细胞、基因、遗传、进化、生态、人体 |
-| **AI / 人工智能** | `subjects/ai-teacher-SKILL.md` | AI、大模型、LLM、ChatGPT、Claude、DeepSeek、Prompt、Agent、智能体、MCP、RAG、AI工具 |
-| **费曼思维**（反蒸馏） | `subjects/feynman-teacher-SKILL.md` | 费曼、Feynman、反自欺、货物崇拜、第一性原理、科学思维、批判性思维、命名≠理解 |
+| 学科 | 类型 | 文件 | 触发词 |
+|------|------|------|--------|
+| **数学** | knowledge | `subjects/math-teacher-SKILL.md` | 数学、公式、计算、证明、方程、函数、微积分、概率 |
+| **编程** | knowledge | `subjects/programming-teacher-SKILL.md` | 编程、代码、Python、JavaScript、开发、算法、数据结构 |
+| **语文** | knowledge | `subjects/chinese-teacher-SKILL.md` | 语文、文言文、古诗、阅读、写作、作文、文学 |
+| **英语** | knowledge | `subjects/english-teacher-SKILL.md` | 英语、英文、语法、单词、雅思、托福、四六级 |
+| **物理** | knowledge | `subjects/physics-teacher-SKILL.md` | 物理、力学、电学、热学、光学、运动、牛顿 |
+| **化学** | knowledge | `subjects/chemistry-teacher-SKILL.md` | 化学、反应、方程式、配平、酸碱、有机化学 |
+| **历史** | knowledge | `subjects/history-teacher-SKILL.md` | 历史、朝代、古代史、近代史、时间线、历史人物 |
+| **生物** | knowledge | `subjects/biology-teacher-SKILL.md` | 生物、细胞、基因、遗传、进化、生态、人体 |
+| **AI / 人工智能** | knowledge | `subjects/ai-teacher-SKILL.md` | AI、大模型、LLM、ChatGPT、Claude、DeepSeek、Prompt、Agent、智能体、MCP、RAG、AI工具 |
+| **费曼思维**（反蒸馏） | methodology | `subjects/feynman-teacher-SKILL.md` | 费曼、Feynman、反自欺、货物崇拜、第一性原理、科学思维、批判性思维、命名≠理解 |
 
-当用户提到的学科与上表匹配时，自动加载对应的学科专用教学策略，在 Phase 1 学情诊断后执行对应策略进行教学。如果用户没有明确学科，使用默认教学策略。
+当用户提到的学科与上表匹配时，读取对应文件，先看 frontmatter 的 `type`，再执行文件内的「执行微流程（v3.0）」。如果用户没有明确学科，使用默认教学策略；自定义学科按 `subjects/_template-SKILL.md` 扩展。
 
 ---
 
@@ -334,3 +474,11 @@ Phase 5:  学习完成总结
 |------|------|
 | v2.0.0 | 新增跨学科思维模块 + AI 学科 + 7 个新学科 |
 | v2.1.0 | 教学流程从 SKILL.md 拆分独立，新增学习状态管理，新增验证回路 |
+| v2.2.0 | 技能教学：从开源 skill / 网络资料生成课程；中间确认点 |
+| v2.3.0 | 吸收女娲.skill 的双 Agent 审查与增量更新模式 |
+| v2.4.0 | 统一提取管道（四维提取 + 三重验证） |
+| v2.5.0 | 刻意练习循环 + 心智演练 |
+| v2.6.0 | 艾宾浩斯间隔复习 + 学习状态持久化增强 |
+| v2.7.0 | 渐进式路径 + 教学错误纠正流程 |
+| v2.8.0 | 课前搜索、评估检测系统、应试套路教学法 |
+| **v3.0.0** | **HTML 讲义/练习导出 + 课程复习目录；学科插件化（knowledge / methodology 分流）；轻量启动模式；搜索失败优雅降级；单元测试 + CI** |

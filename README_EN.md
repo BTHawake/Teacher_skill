@@ -6,10 +6,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
-[![Version](https://img.shields.io/badge/version-2.8.0-blue)]()
+[![Version](https://img.shields.io/badge/version-3.0.0-blue)]()
 [![Subjects](https://img.shields.io/badge/subjects-10-orange)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
-[![Multi-Platform](https://img.shields.io/badge/Multi--Platform-5%20Platforms-orange)]()
+[![Multi-Platform](https://img.shields.io/badge/Multi--Platform-6%20Platforms-orange)]()
 
 ---
 
@@ -17,7 +17,7 @@ Throw a document, book, or course at an AI — it will teach you like a patient 
 
 It never assumes you "should know" something, never jumps to the answer, and never skips a step. After each concept, it checks that you truly understand before moving on.
 
-**v2.8 core capabilities**: Mandatory pre-lesson web search — verifies teaching content against at least 2 authoritative sources before each lesson. If all sources are unreachable, stops and waits for user instruction. Say "teach me how Buffett thinks" — auto-search skills from open-source repos, extract mental models, generate curriculum, and start teaching. Supports learning progress persistence, deliberate practice loops, Ebbinghaus spaced repetition, progressive learning paths, and teaching error correction.
+**v3.0 core capabilities**: After every unit, the AI teacher generates a self-contained **HTML lesson + exercise sheet** and maintains a course index. Based on exercise results and mastery (Lv0-Lv3), it decides whether to **re-teach, keep practicing, review, or advance**. Advancing requires both a first-pass check and a new-scenario variant. 10 subjects now ship with executable micro-flows, split into **knowledge / methodology** paths, plus a 5-minute lightweight mode.
 
 Now supports **10 subjects**: Math, Programming, Chinese, English, Physics, Chemistry, History, Biology, AI, and Feynman Thinking.
 
@@ -69,6 +69,23 @@ git clone https://github.com/BTHawake/Teacher_skill ~/.config/opencode/skills/te
 git clone https://github.com/BTHawake/Teacher_skill ~/.openclaw/workspace/skills/teacher-skills
 # Restart Gateway to apply
 ```
+
+### DeepSeek Harness (DSH)
+
+```bash
+# Project-level (current workspace)
+mkdir -p .dsh/skills
+git clone https://github.com/BTHawake/Teacher_skill .dsh/skills/teacher
+
+# Global (all workspaces)
+git clone https://github.com/BTHawake/Teacher_skill ~/.dsh/skills/teacher
+```
+
+DSH discovers `SKILL.md` under `.dsh/skills/` live, no restart needed. Notes:
+
+- DSH ignores extra frontmatter such as `allowed-tools` / `triggers`, but reads `name` / `description`
+- Web tools are `web_search` / `web_fetch`; the pre-lesson search rule is platform-agnostic
+- Open HTML lessons directly in a browser, or serve them locally if `file://` is restricted
 
 ### TRAE
 
@@ -152,7 +169,13 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | `/teacher reset` | Reset teaching session | `/teacher reset` |
 | `/teacher level` | Manually set ability level | `/teacher level advanced` |
 | `/teacher skip` | Skip current unit | `/teacher skip` |
-| `/teacher review` | Review learned content | `/teacher review` |
+| `/teacher review` | Open the lesson index and review due items (v3.0) | `/teacher review` |
+| `/teacher quick` | Lightweight mode: one concept + one example + one check | `/teacher quick what is place value` |
+| `/teacher practice` | Generate 3 targeted exercises from weak points | `/teacher practice` |
+| `/teacher mastery` | Show Lv0-Lv3 mastery and next review | `/teacher mastery` |
+| `/teacher export` | Export current unit as HTML | `/teacher export` |
+| `/teacher rebuild` | Rebuild all HTML for current course | `/teacher rebuild` |
+| `/teacher html on/off` | Toggle auto HTML after each unit | `/teacher html off` |
 | `/teacher quit` | End current session | `/teacher quit` |
 | `/teacher style` | View current style profile | `/teacher style` |
 | `/teacher style off` | Disable style imitation | `/teacher style off` |
@@ -221,16 +244,76 @@ Style analysis covers six dimensions: sentence structure, vocabulary, teaching p
 
 > **Dependency**: Video subtitle extraction requires `yt-dlp` (`pip install yt-dlp`). If the video lacks subtitles, please upload subtitle files directly.
 
-### Pre-Lesson Search Verification (v2.8 New)
+### HTML Lessons & Exercise Sheets (v3.0)
 
-Mandatory web search before every lesson — verifies teaching content against at least 2 authoritative sources. If all sources are unreachable:
+After each unit, the teacher writes the lesson, exercises and answers into a self-contained HTML page under `讲义/{course}/` and updates a course index:
 
-1. Report all attempted URLs and failure reasons to the user
-2. Stop teaching — cannot proceed without network verification
-3. Wait for explicit user instruction ("continue", "skip search", etc.)
-4. Suggest switching network or proxy and trying again
+```
+讲义/计算机组成原理/
+├── index.html                 # progress, due reviews, weak points, AI next step
+├── unit-04-进位计数制.html     # lesson + exercises + collapsed answers
+└── practice-04-错题变式.html   # exercise sheet (kind: practice)
+```
 
-On success, cite sources and continue normally without interruption.
+- Offline single file; no CDN, web fonts, or analytics
+- Answers collapsed by default; "expand all" button; print/PDF friendly
+- Auto TOC, callouts, tables, code blocks, SVG diagrams
+- Index shows unit count, completed, due reviews, weak concepts, due list and AI next step
+
+![HTML lesson index](docs/html-lessons-index.png)
+
+![HTML lesson page](docs/html-lessons-page.png)
+
+```bash
+python scripts/lesson_html.py build --course "Computer Organization" \
+  --file "讲义/Computer Organization/unit-04.md" \
+  --state "teachers/Computer Organization/learning-state.json"
+```
+
+See [`ref/html-lessons.md`](ref/html-lessons.md).
+
+### Adaptive Teaching (v3.0)
+
+After each unit, run 3 exercises (concept / application / transfer), record mastery, then decide:
+
+| Level | Evidence | Default action |
+|-------|----------|----------------|
+| Lv0 Not mastered | Wrong / cannot explain | Re-teach with another representation |
+| Lv1 Vague | Partially correct / needs hints | 2 targeted exercises |
+| Lv2 Basically mastered | First check passed | 1 new-scenario variant |
+| Lv3 Mastered | First check + variant passed | Advance + spaced review |
+
+- **Advance gate**: first check + variant must both pass; doing one original question is not enough
+- **Decision order**: recent fail → re-teach; partial → practice; due → review (>5 due: do 3, defer the rest); Lv2 → variant; all Lv3 → advance
+- **Autonomy**: within-unit adjustments are automatic; changing units/route requires confirmation
+- **Review**: 1/3/7/14/30 days; when >5 items are due, process only 3 this session
+
+```bash
+python scripts/mastery.py record --state "teachers/course/learning-state.json" \
+  --concept "place value" --unit U4 --kind first --result pass
+python scripts/mastery.py advise --state "teachers/course/learning-state.json"
+```
+
+See [`ref/adaptive-teaching.md`](ref/adaptive-teaching.md).
+
+### Subject Plugins (v3.0)
+
+Each `subjects/*.md` carries `type: knowledge | methodology` and a 5-step micro-flow. The main SKILL dispatches; the subject file defines how that subject is taught. See [`ref/subject-plugins.md`](ref/subject-plugins.md).
+
+### Lightweight Mode (v3.0)
+
+"Explain it briefly / five minutes / `/teacher quick`" → one concept + one example + one check, without the full Phase 0-2. Offer to expand into a full unit afterwards.
+
+### Pre-Lesson Search Verification (v3.0 revision)
+
+Before each new unit, verify at least 2 authoritative sources with the platform's web tools. If every source is unreachable:
+
+1. Briefly state the tools tried and why they failed
+2. **Ask once**: continue with existing materials + my knowledge (mark "not web-verified"), or fix the network first?
+3. If the user chooses to continue, don't ask again this session; mark volatile facts as "not web-verified"
+4. Never fabricate sources; if nothing was found, say "based on chapter X of the textbook"
+
+When search succeeds, cite the sources and continue without interrupting the lesson.
 
 ### Assessment System (v2.8 New)
 
@@ -280,6 +363,8 @@ teacher-skills/
 │   └── skill-config.json                 # Project configuration
 │
 ├── prompts/
+│   ├── lesson_template.md               # Lesson Markdown template (v3.0)
+│   ├── practice_template.md             # Exercise-sheet template (v3.0)
 │   ├── intake.md                       # Teacher info intake (3 questions + tag library)
 │   ├── style-extractor.md              # Teaching style 6-dimension extraction guide
 │   ├── style-profile-template.md       # Teaching style profile template
@@ -289,20 +374,37 @@ teacher-skills/
 │   └── correction_handler.md           # Conversation correction handler
 │
 ├── scripts/
+│   ├── lesson_html.py                   # Markdown → self-contained HTML + index (v3.0)
+│   ├── mastery.py                       # Mastery / review / next-step engine (v3.0)
 │   ├── generate_quiz.py                # Quiz generator
 │   ├── evaluate_answer.py              # Answer evaluation
 │   ├── track_progress.py               # Progress tracker
-│   ├── learning_state.py               # Learning state persistence (v2.1)
+│   ├── learning_state.py               # Learning state persistence (v3.0)
 │   ├── reverse_distill.py              # Reverse-distillation tool (v2.1)
 │   ├── extract_subtitle.py             # Subtitle extraction
 │   └── skill_writer.py                 # Teaching profile manager
+│
+├── tests/                              # Unit tests (v3.0)
+│   ├── test_lesson_html.py
+│   └── test_mastery.py
+│
+├── examples/                           # Buildable demo lesson / exercise sheet
+│   ├── lesson-demo.md
+│   └── practice-demo.md
+│
+├── docs/                               # Documentation screenshots
+│   ├── html-lessons-index.png
+│   └── html-lessons-page.png
 │
 ├── ref/
 │   ├── learner-diagnosis.md              # Student assessment guide
 │   ├── teaching-strategies.md            # Three-level teaching strategies
 │   ├── teaching-techniques.md            # Plain language techniques + analogy library
 │   ├── question-templates.md             # Question template library
-│   ├── teaching-sop.md                   # Teaching SOP (main workflow Phase 0-5)
+│   ├── teaching-sop.md                   # Teaching SOP (Phase 0-5 + 3.7/3.8)
+│   ├── adaptive-teaching.md              # Adaptive teaching engine (v3.0)
+│   ├── html-lessons.md                   # HTML lesson export guide (v3.0)
+│   ├── subject-plugins.md                # Subject plugin protocol (v3.0)
 │   ├── management-commands.md            # Management commands
 │   ├── verification-framework.md         # Teaching verification framework
 │   ├── extraction-framework.md           # Unified extraction framework (v2.4)
@@ -318,8 +420,11 @@ teacher-skills/
 ├── adapters/
 │   └── trae-teacher.md                   # TRAE platform adapter
 │
+├── .github/workflows/
+│   └── ci.yml                            # Unit tests + compile checks (v3.0)
+│
 └── subjects/
-    ├── _template-SKILL.md                # Subject skill template (reusable)
+    ├── _template-SKILL.md                # Subject skill template (reusable, v3.0 micro-flow)
     ├── math-teacher-SKILL.md             # Math teaching strategy
     ├── programming-teacher-SKILL.md      # Programming teaching strategy
     ├── chinese-teacher-SKILL.md          # Chinese teaching strategy

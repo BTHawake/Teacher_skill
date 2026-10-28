@@ -15,9 +15,23 @@ triggers:
   - "批判性思维"
   - "学会思考"
   - "怎么判断自己真的理解了"
+subject: feynman
+type: methodology
+version: 3.0.0
 ---
 
 # 费曼思维教学策略（反蒸馏版）
+
+## 执行微流程（v3.0）
+
+> 主 SKILL 加载本学科后，优先按这 5 步执行；每步完成后再进入下一步。
+
+1. 识别旧模式：让用户说出自己现在的做法或信念（例如「记住名字就是懂了」）。
+2. 制造冲突：用一个反例或小实验让旧模式当场失效。
+3. 新模型：给出一句话原则 + 一个可操作检查清单。
+4. 场景练习：在 2-3 个新场景中套用，要求用户自己发现错误。
+5. 习惯固化：设计一个日常触发点 + 一张复习卡，并生成 HTML 讲义。
+
 
 > "The first principle is that you must not fool yourself — and you are the easiest person to fool."
 >

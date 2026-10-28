@@ -1,5 +1,5 @@
 """
-teacher-skill 学习状态持久化管理 (v2.1)
+teacher-skill 学习状态持久化管理 (v3.0)
 
 支持三个操作：
   --save <state.json>    保存当前学习状态（从 stdin 读取 JSON）
@@ -7,6 +7,7 @@ teacher-skill 学习状态持久化管理 (v2.1)
   --update <state.json> <json_patch>  更新指定字段
   --new <name>           创建新的学习会话（初始化状态）
 
+掌握度的记录/决策由 scripts/mastery.py 负责；本脚本保留为兼容入口。
 状态文件存储在 teachers/{name}/learning-state.json
 """
 
@@ -27,7 +28,7 @@ def default_state(name="default"):
             "name": name,
             "created_at": now,
             "updated_at": now,
-            "version": "2.6.0"
+            "version": "3.0.0"
         },
         "user": {
             "level": None,
@@ -55,6 +56,11 @@ def default_state(name="default"):
             "last_check_at": None,
             "due_count": 0,
             "overdue": []
+        },
+        "mastery": {
+            "version": "3.0.0",
+            "concepts": {},
+            "next_action": None
         }
     }
 
@@ -164,6 +170,26 @@ def print_summary(state):
     if review.get("due_count", 0) > 0:
         add("待复习单元", str(review["due_count"]) + " 个")
         lines.extend(_build_review_lines(review))
+
+    mastery = state.get("mastery", {})
+    concepts = mastery.get("concepts", {}) if isinstance(mastery, dict) else {}
+    if isinstance(concepts, dict) and concepts:
+        today = datetime.now().date().isoformat()
+        weak = 0
+        due = 0
+        for info in concepts.values():
+            if not isinstance(info, dict):
+                continue
+            if int(info.get("level", 0) or 0) <= 1:
+                weak += 1
+            review_at = str(info.get("next_review_at") or "")[:10]
+            if review_at and review_at <= today:
+                due += 1
+        add("掌握度", "%d 个知识点，薄弱 %d，到期复习 %d" % (len(concepts), weak, due))
+        action = mastery.get("next_action")
+        if isinstance(action, dict):
+            target = ("：" + str(action.get("target"))) if action.get("target") else ""
+            add("建议下一步", str(action.get("type", "")) + target)
 
     print("\n".join(lines))
 
