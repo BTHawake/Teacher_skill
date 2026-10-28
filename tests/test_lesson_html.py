@@ -167,8 +167,9 @@ class UtilityTests(unittest.TestCase):
         self.assertEqual(lh.safe_component("  "), "course")
 
     def test_unit_file_stem(self):
-        self.assertEqual(lh.unit_file_stem(4, "进位计数制"), "unit-04-进位计数制")
-        self.assertEqual(lh.unit_file_stem("U1-2", "进程"), "unit-u1-2-进程")
+        self.assertEqual(lh.unit_file_stem(4, "进位计数制"), "unit-04")
+        self.assertEqual(lh.unit_file_stem("U1-2", "进程"), "unit-u1-2")
+        self.assertEqual(lh.unit_file_stem("", "浮点数"), "lesson-浮点数")
 
 
 class BuildTests(unittest.TestCase):
@@ -214,9 +215,15 @@ class BuildTests(unittest.TestCase):
         entries = lh.scan_entries(course)
         self.assertEqual([entry["title"] for entry in entries], ["新稿"])
 
-    def test_build_creates_html_and_index(self):
+    def test_build_default_does_not_copy_source(self):
         src = self._write("unit-04.md", SAMPLE)
         result = lh.build_lesson("计算机组成原理", src, self.out, quiet=True)
+        self.assertTrue(result["html"].exists())
+        self.assertFalse((result["html"].parent / "unit-04.md").exists())
+
+    def test_build_creates_html_and_index(self):
+        src = self._write("unit-04.md", SAMPLE)
+        result = lh.build_lesson("计算机组成原理", src, self.out, quiet=True, copy_source=True)
         html_path = result["html"]
         index_path = result["index"]
         self.assertTrue(html_path.exists())
@@ -231,9 +238,9 @@ class BuildTests(unittest.TestCase):
         index = index_path.read_text(encoding="utf-8")
         self.assertIn("进位计数制", index)
         self.assertIn("该复习了", index)  # review_at 是 2000 年，已到期
-        self.assertIn("unit-04-进位计数制.html", index)
+        self.assertIn("unit-04.html", index)
         # 源文件被复制到输出目录，供 rebuild 使用
-        self.assertTrue((html_path.parent / "unit-04-进位计数制.md").exists())
+        self.assertTrue((html_path.parent / "unit-04.md").exists())
 
     def test_build_two_units_sorted_and_navigation(self):
         src4 = self._write("unit-04.md", SAMPLE)
@@ -241,13 +248,13 @@ class BuildTests(unittest.TestCase):
             "unit-05.md",
             "---\ncourse: 计算机组成原理\nunit: 5\ntitle: 定点数编码\n---\n\n## 内容\n",
         )
-        lh.build_lesson("计算机组成原理", src5, self.out, quiet=True)
-        result4 = lh.build_lesson("计算机组成原理", src4, self.out, quiet=True)
+        lh.build_lesson("计算机组成原理", src5, self.out, quiet=True, copy_source=True)
+        result4 = lh.build_lesson("计算机组成原理", src4, self.out, quiet=True, copy_source=True)
         lh.rebuild_course("计算机组成原理", self.out, quiet=True)
         page4 = result4["html"].read_text(encoding="utf-8")
         self.assertIn("下一单元", page4)
         self.assertIn("定点数编码", page4)
-        page5 = (self.out / "计算机组成原理" / "unit-05-定点数编码.html").read_text(
+        page5 = (self.out / "计算机组成原理" / "unit-05.html").read_text(
             encoding="utf-8"
         )
         self.assertIn("上一单元", page5)
@@ -274,7 +281,7 @@ class BuildTests(unittest.TestCase):
             ),
         )
         result = lh.build_lesson(
-            "计算机组成原理", src, self.out, state_path=state_path, quiet=True
+            "计算机组成原理", src, self.out, state_path=state_path, quiet=True, copy_source=True
         )
         index = result["index"].read_text(encoding="utf-8")
         self.assertIn("进行中", index)
@@ -292,8 +299,8 @@ class BuildTests(unittest.TestCase):
 
     def test_rebuild_and_index(self):
         src = self._write("unit-04.md", SAMPLE)
-        lh.build_lesson("计算机组成原理", src, self.out, quiet=True)
-        html_path = self.out / "计算机组成原理" / "unit-04-进位计数制.html"
+        lh.build_lesson("计算机组成原理", src, self.out, quiet=True, copy_source=True)
+        html_path = self.out / "计算机组成原理" / "unit-04.html"
         html_path.write_text("stale", encoding="utf-8")
         built = lh.rebuild_course("计算机组成原理", self.out, quiet=True)
         self.assertEqual(len(built), 1)
@@ -332,7 +339,7 @@ kind: lesson
             "计算机组成原理",
             src,
             self.out,
-            quiet=True,
+            quiet=True, copy_source=True,
             server_url="http://127.0.0.1:9999",
             api_path="/teacher/api/answers",
             workspace="TeacherSkillEditor",
@@ -374,7 +381,7 @@ kind: lesson
 正文
 """,
         )
-        result = lh.build_lesson("计算机组成原理", src, self.out, quiet=True)
+        result = lh.build_lesson("计算机组成原理", src, self.out, quiet=True, copy_source=True)
         page = result["html"].read_text(encoding="utf-8")
         self.assertIn('<body class="layout-article">', page)
         self.assertNotIn('<div class="deck"', page)
@@ -432,7 +439,7 @@ B: 20
 :::
 """,
         )
-        result = lh.build_lesson("计算机组成原理", src, self.out, quiet=True)
+        result = lh.build_lesson("计算机组成原理", src, self.out, quiet=True, copy_source=True)
         page = result["html"].read_text(encoding="utf-8")
         for marker in [
             "diagram-flow",
@@ -487,7 +494,7 @@ B: 20
             ),
         )
         lh.build_lesson(
-            "计算机组成原理", src, self.out, state_path=state_path, quiet=True
+            "计算机组成原理", src, self.out, state_path=state_path, quiet=True, copy_source=True
         )
         practice = self._write(
             "practice.md",
@@ -508,7 +515,7 @@ state_id: U4
 """,
         )
         result = lh.build_lesson(
-            "计算机组成原理", practice, self.out, state_path=state_path, quiet=True
+            "计算机组成原理", practice, self.out, state_path=state_path, quiet=True, copy_source=True
         )
         self.assertTrue(result["html"].name.startswith("practice-04-"))
         index = result["index"].read_text(encoding="utf-8")
@@ -516,7 +523,7 @@ state_id: U4
         self.assertIn("AI 建议下一步", index)
         self.assertIn("练习卷 1 份", index)
         self.assertIn('data-kind="practice"', index)
-        lesson = (self.out / "计算机组成原理" / "unit-04-进位计数制.html").read_text(
+        lesson = (self.out / "计算机组成原理" / "unit-04.html").read_text(
             encoding="utf-8"
         )
         self.assertIn("掌握度：Lv2", lesson)

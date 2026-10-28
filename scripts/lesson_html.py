@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""teacher.skill v3.0 - HTML 讲义 / 练习导出器。
+"""teacher.skill v4.3 - HTML 讲义 / 练习导出器。
 
 把 AI 老师写好的 Markdown 讲义渲染成不依赖网络的单文件 HTML，并维护一个
 课程总目录 index.html，方便课后复习。
@@ -8,7 +8,7 @@
 用法（在工作区根目录执行）：
 
     python scripts/lesson_html.py build --course "计算机组成原理" \
-        --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+        --file "讲义/计算机组成原理/unit-04.md" \
         --state "teachers/计算机组成原理/learning-state.json"
 
     python scripts/lesson_html.py rebuild --course "计算机组成原理" \
@@ -16,12 +16,13 @@
 
     python scripts/lesson_html.py index --course "计算机组成原理"
 
-输出目录默认是工作区顶层的 ``讲义/<课程>/``。每个单元生成：
+输出目录默认是工作区顶层的 ``讲义/<课程>/``。主课件用稳定编号：
 
-    unit-04-进位计数制.md     # 源文件（可再次编辑 / rebuild）
-    unit-04-进位计数制.html   # 自包含页面（讲义 + 练习 + 折叠答案）
-    index.html                # 课程目录 / 复习入口
+    unit-04.md     # 源文件（可再次编辑 / rebuild）
+    unit-04.html   # 自包含页面（讲义 + 练习 + 折叠答案）
+    index.html     # 课程目录 / 复习入口
 
+源文件不在课程目录时默认只警告、不复制；需要复制时显式传 --copy-source。
 只使用 Python 标准库，兼容 Python 3.9+。
 """
 
@@ -247,14 +248,13 @@ def slugify(text: Any, fallback: str = "lesson") -> str:
 
 
 def unit_file_stem(unit: Any, title: Any) -> str:
+    """Stable lesson identity: unit number, not the mutable title."""
     unit_text = str(unit if unit not in (None, "") else "").strip()
     if re.fullmatch(r"\d+", unit_text):
-        unit_part = "unit-%02d" % int(unit_text)
-    elif unit_text:
-        unit_part = "unit-" + slugify(unit_text, "x")
-    else:
-        unit_part = "unit"
-    return "%s-%s" % (unit_part, slugify(title))
+        return "unit-%02d" % int(unit_text)
+    if unit_text:
+        return "unit-" + slugify(unit_text, "x")
+    return "lesson-" + slugify(title)
 
 
 def normalize_status(value: Any) -> str:
@@ -2579,8 +2579,15 @@ def scan_entries(course_dir: Path) -> List[Dict[str, Any]]:
             continue
         entry = _entry_from_markdown(path, meta)
         entry["_html_mtime"] = html_path.stat().st_mtime
+        entry["_canonical"] = entry["stem"] == unit_file_stem(entry.get("unit"), entry.get("title"))
         entries.append(entry)
-    entries.sort(key=lambda entry: (_sort_key(entry), -entry.get("_html_mtime", 0)))
+    entries.sort(
+        key=lambda entry: (
+            _sort_key(entry),
+            0 if entry.get("_canonical") else 1,
+            -entry.get("_html_mtime", 0),
+        )
+    )
     # 同一单元只保留最新生成的 lesson；旧的重命名稿不再重复出现在目录里。
     unique: List[Dict[str, Any]] = []
     seen_lessons = set()
@@ -2593,6 +2600,7 @@ def scan_entries(course_dir: Path) -> List[Dict[str, Any]]:
                 continue
             seen_lessons.add(key)
         entry.pop("_html_mtime", None)
+        entry.pop("_canonical", None)
         unique.append(entry)
     return unique
 
@@ -2758,6 +2766,7 @@ def build_lesson(
     api_path: str = "",
     workspace: str = "",
     api_token: str = "",
+    copy_source: bool = False,
 ) -> Dict[str, Path]:
     if not source.exists():
         raise FileNotFoundError("找不到源文件：%s" % source)
@@ -2792,7 +2801,15 @@ def build_lesson(
     md_path = course_dir / (stem + ".md")
     html_path = course_dir / (stem + ".html")
     if source.resolve() != md_path.resolve():
-        md_path.write_text(raw, encoding="utf-8")
+        if copy_source:
+            md_path.write_text(raw, encoding="utf-8")
+        else:
+            _warn(
+                "源文件不在课程目录：%s\n"
+                "未复制到 %s；rebuild 不会包含它。"
+                "建议把源文件直接写到课程目录，或显式传 --copy-source。"
+                % (source, md_path)
+            )
 
     entries = scan_entries(course_dir)
     current_entry = _entry_from_markdown(md_path, meta)
@@ -2970,6 +2987,11 @@ def _build_parser() -> argparse.ArgumentParser:
     build = sub.add_parser("build", help="渲染单个讲义并更新目录")
     common(build)
     build.add_argument("--file", required=True, help="Markdown 源文件路径")
+    build.add_argument(
+        "--copy-source",
+        action="store_true",
+        help="源文件不在课程目录时复制进去（默认只警告，不复制）",
+    )
 
     rebuild = sub.add_parser("rebuild", help="重建课程目录下所有 HTML")
     common(rebuild)
@@ -2998,6 +3020,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 api_path=args.api_path,
                 workspace=args.workspace,
                 api_token=args.api_token,
+                copy_source=args.copy_source,
             )
             return 0 if result else 1
         if args.command == "rebuild":

@@ -141,7 +141,7 @@ AI 每次加载都要啃完整份文件，但每次只用其中一小部分。�
 - [x] P1-3 学科类型区分（v3.0.0：knowledge / methodology）
 - [ ] P2-1 跨学科连接自动化（索引表，未做）
 - [ ] P2-2 风格模仿冲突修复（v3.0 未单独处理，留待后续）
-- [x] P2-3 脚本测试（v3.0.0：30 个 unittest + CI；v4.1 增至 52）
+- [x] P2-3 脚本测试（v3.0.0：30 个 unittest + CI；v4.1 增至 53）
 
 ### v4.3.0 新增（2026-10-28）
 
@@ -149,6 +149,8 @@ AI 每次加载都要啃完整份文件，但每次只用其中一小部分。�
 - [x] 插件不再硬编码本机路径，legacy `workspaceRoot` 仍兼容
 - [x] `dsh_host` 检测未注册 workspace，返回 `dsh-plugin-register-required`
 - [x] fallback 端口由 AI 自选，`course_server --port 0` 打印实际端口
+- [x] 主课件稳定编号 `unit-04.md/html`；源文件默认不复制，`--copy-source` 才复制
+- [x] `verify_page` 边界写清；文档统一 `unit-04` 示例
 
 ### v4.2.0 新增（2026-10-28）
 
@@ -182,7 +184,7 @@ AI 每次加载都要啃完整份文件，但每次只用其中一小部分。�
 - [x] **补讲/练习/复习页**：决策落成独立 HTML，不重写原课件
 - [x] **图示 DSL**：flow / layers / timeline / cycle / compare / bars
 - [x] **动效与交互**：主题切换、翻转卡、提示折叠、代码复制、SVG 动画
-- [x] **测试/CI**：52 个 unittest
+- [x] **测试/CI**：53 个 unittest
 
 ### v3.0.0 新增（2026-10-28）
 

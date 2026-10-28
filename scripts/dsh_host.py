@@ -255,15 +255,22 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "",
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Detect the best host for a teacher.skill course deck.")
     parser.add_argument("--course", required=True, help="课程名")
-    parser.add_argument("--workspace", default=Path.cwd().name, help="工作区目录名（默认当前目录名）")
+    parser.add_argument("--workspace", default="", help="工作区目录名（默认取 workspace-root 的目录名）")
+    parser.add_argument("--workspace-root", default="", help="课程工作区根目录（默认 pwd）；AI 自己判断")
     parser.add_argument("--dsh-url", default="", help="DSH Web 地址（默认探测 127.0.0.1:3080）")
     parser.add_argument("--server-url", default="", help="已有 course_server 地址")
     parser.add_argument("--public-base", default="", help="远程 DSH 的公网根地址，如 https://dsh.example.com；不填只输出根相对链接")
     parser.add_argument("--json", action="store_true", help="输出 JSON")
     args = parser.parse_args(argv)
 
+    workspace_root = Path(args.workspace_root or Path.cwd()).expanduser()
+    if not workspace_root.exists() or not workspace_root.is_dir():
+        result = {"ok": False, "mode": "invalid-workspace", "error": "workspace root 不存在：%s" % workspace_root}
+        print(json.dumps(result, ensure_ascii=False, indent=2) if args.json else "ERROR: %s" % result["error"])
+        return 2
+    workspace = args.workspace or workspace_root.name
     public_base = args.public_base or os.environ.get("DSH_WEB_PUBLIC_URL") or os.environ.get("DSH_PUBLIC_URL") or ""
-    result = detect(args.course, args.workspace, args.dsh_url, args.server_url, public_base)
+    result = detect(args.course, workspace, args.dsh_url, args.server_url, public_base)
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:

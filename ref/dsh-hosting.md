@@ -122,7 +122,7 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
 优先发**根相对链接**，它会跟着用户当前 DSH 地址解析：
 
 ```markdown
-[打开第 4 单元课件](/teacher/TeacherSkillEditor/计算机组成原理/unit-04-进位计数制.html)
+[打开第 4 单元课件](/teacher/TeacherSkillEditor/计算机组成原理/unit-04.html)
 ```
 
 远程 DSH 用 SSH 隧道/域名反代时，**根相对链接**不需要知道公网域名，浏览器会按当前地址解析。
@@ -155,6 +155,12 @@ python scripts/verify_page.py \
 - `FAIL` 先修路径/服务；浏览器工具可用时再截图确认不是空白页
 - 独立 8765 模式把 URL 换成 `http://127.0.0.1:8765/...`
 
+**`verify_page.py` 的边界：**
+
+- 验：文件存在、非空、完整 HTML、HTTP 200、content-type、标题
+- 不验：浏览器 JS 是否执行、是否白屏、远程域名/鉴权、答题 POST、插件 registry
+- 浏览器渲染用 browser-skill 截图；答案提交换页面的提交按钮实测；registry 用 `dsh_host.py` 检查
+
 ### 网页里的“返回对话”
 
 课件顶部栏有 `← 返回对话`，只在 DSH `/teacher/` 页面显示：
@@ -184,7 +190,7 @@ python scripts/lesson_html.py build ... --server-url "http://127.0.0.1:8765"
 发给用户：
 
 ```markdown
-[打开第 4 单元课件](http://127.0.0.1:8765/计算机组成原理/unit-04-进位计数制.html)
+[打开第 4 单元课件](http://127.0.0.1:8765/计算机组成原理/unit-04.html)
 ```
 
 - 本机浏览器可直接打开

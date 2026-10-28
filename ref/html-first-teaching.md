@@ -81,7 +81,7 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 ```bash
 python scripts/lesson_html.py build \
   --course "计算机组成原理" \
-  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --file "讲义/计算机组成原理/unit-04.md" \
   --state "teachers/计算机组成原理/learning-state.json" \
   --api-path "/teacher/api/answers" \
   --workspace "TeacherSkillEditor"
@@ -93,7 +93,7 @@ python scripts/lesson_html.py build \
 
 ```
 第 4 单元课件已生成（共 7 步）：
-[打开第 4 单元](/teacher/TeacherSkillEditor/计算机组成原理/unit-04-进位计数制.html)
+[打开第 4 单元](/teacher/TeacherSkillEditor/计算机组成原理/unit-04.html)
 先看第 2-4 步；做完练习点“提交答案”，然后回我一句“答好了”。
 ```
 

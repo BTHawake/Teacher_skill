@@ -366,6 +366,7 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | **Post-build check** | `verify_page.py` checks file integrity + HTTP 200 + title; only PASS links are sent |
 | **Workspace registry** | AI decides with `pwd` and writes `~/.dsh/teacher-workspaces.json`; plugin serves only registered roots |
 | **Port** | Plugin has no separate port; fallback lets AI pick a free port (`--port 0`) |
+| **Stable filenames** | Main lessons use `unit-04.md/html`; title stays in frontmatter; source is not copied by default |
 | **Directory dedupe** | Ignore old `.md` without HTML; keep only the newest deck per unit |
 | **Remote links** | Send root-relative `/teacher/...`; never send a `127.0.0.1` absolute URL to remote users |
 | **Absolute URL** | `dsh_host.py --public-base https://host/...` builds `public_url`; `local_url` is local-only |
@@ -379,7 +380,7 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | **Animations & interactions** | Theme toggle, flip cards, hints, code copy, SVG animations |
 | **Adaptive mastery** | Lv0-Lv3; advance only after first check + variant |
 | **Review schedule** | 1/3/7/14/30 days; when >5 items are due, process only 3 this session |
-| **Tests / CI** | 52 unit tests; GitHub Actions on Python 3.9-3.12 |
+| **Tests / CI** | 53 unit tests; GitHub Actions on Python 3.9-3.12 |
 
 ---
 
@@ -465,11 +466,14 @@ python scripts/dsh_register.py --workspace-root "$PWD" --json
 ```
 讲义/Computer Organization/
 ├── index.html                 # progress, due reviews, weak points, AI next step
-├── unit-04-进位计数制.html     # step deck + diagrams + answer card
+├── unit-04.html     # step deck + diagrams + answer card
+├── unit-04.md       # source (stable unit id)
 ├── practice-04-错题变式.html   # practice page
 ├── reteach-04-位权.html        # reteach page
 └── answers/latest.json         # answer-card submission (AI reads it)
 ```
+
+Main lessons use a stable `unit-04.md/html` id; write the source directly into the course folder. Build does not copy an outside source by default (`--copy-source` is compatibility only).
 
 - Step navigation, progress bar, visited-step checkmarks, arrow keys
 - Flip cards, hints, code copy, light/dark theme
@@ -722,7 +726,7 @@ Not for chat-only use. HTML decks, the answer server, the mastery engine and pro
 Under the workspace root where you started the AI:
 
 ```
-讲义/Computer Organization/unit-04-进位计数制.html
+讲义/Computer Organization/unit-04.html
 讲义/Computer Organization/index.html
 讲义/Computer Organization/answers/latest.json
 ```

@@ -319,7 +319,7 @@ version: 4.3.0
 ```bash
 python scripts/course_server.py --course "计算机组成原理" --port 8765
 python scripts/lesson_html.py build --course "计算机组成原理" \
-  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --file "讲义/计算机组成原理/unit-04.md" \
   --state "teachers/计算机组成原理/learning-state.json" \
   --server-url "http://127.0.0.1:8765"
 ```
@@ -328,7 +328,7 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
 
 ```
 第 4 单元课件已生成（共 7 步）：
-http://127.0.0.1:8765/unit-04-进位计数制.html
+http://127.0.0.1:8765/unit-04.html
 先看第 2-4 步；做完练习点“提交答案”，回我一句“答好了”。
 ```
 

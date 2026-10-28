@@ -387,12 +387,14 @@ python scripts/mastery.py practice --state "teachers/课程/learning-state.json"
 ```
 讲义/计算机组成原理/
 ├── index.html                     # 课程地图：进度、到期复习、薄弱点、AI 建议
-├── unit-04-进位计数制.html         # 分步 deck：讲义 + 图示 + 答题卡
-├── unit-04-进位计数制.md           # 源文件（可改后 rebuild）
+├── unit-04.html         # 分步 deck：讲义 + 图示 + 答题卡
+├── unit-04.md           # 源文件（可改后 rebuild）
 ├── practice-04-错题变式.html       # 练习页
 ├── reteach-04-位权.html            # 补讲页
 └── answers/latest.json             # 答题卡提交（AI 读取）
 ```
+
+主课件用稳定编号 `unit-04.md/html`，标题只放 frontmatter。源文件直接写进 `讲义/<course>/`；**build 默认不复制源文件**，只有显式 `--copy-source` 才复制。
 
 ### 第一步：探测宿主，不要默认开 8765
 
@@ -444,7 +446,7 @@ DSH `/teacher/` 页面的顶部栏有 `← 返回对话`：
 
 ```bash
 python scripts/lesson_html.py build --course "计算机组成原理" \
-  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --file "讲义/计算机组成原理/unit-04.md" \
   --state "teachers/计算机组成原理/learning-state.json" \
   --api-path "/teacher/api/answers" \
   --workspace "TeacherSkillEditor"
@@ -453,7 +455,7 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
 发链接：
 
 ```markdown
-[打开第 4 单元课件](/teacher/TeacherSkillEditor/计算机组成原理/unit-04-进位计数制.html)
+[打开第 4 单元课件](/teacher/TeacherSkillEditor/计算机组成原理/unit-04.html)
 ```
 
 ### 独立服务模式
@@ -464,7 +466,7 @@ python scripts/course_server.py --course "计算机组成原理" --port 8765
 
 # 2. 生成课件
 python scripts/lesson_html.py build --course "计算机组成原理" \
-  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --file "讲义/计算机组成原理/unit-04.md" \
   --state "teachers/计算机组成原理/learning-state.json" \
   --server-url "http://127.0.0.1:8765"
 ```
@@ -651,4 +653,4 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 | **v4.1.0** | **DSH 宿主探测：优先同源 `/teacher` 插件，其次独立课程服务，自动给可直接打开的链接；插件独立仓库 dsh-Teacher-skill；答题卡支持 `--api-path` / workspace / token** |
 | **v4.1.1** | **远程链接修复：默认发根相对 `/teacher/...`，不再发 `127.0.0.1` 绝对地址；需要绝对 URL 时用 `--public-base` 生成 `public_url`** |
 | **v4.2.0** | **DSH 缺插件先提醒安装、8765 标注临时回退；网页顶部栏新增 `← 返回对话`（opener → referrer → DSH 根路径）** |
-| **v4.3.0** | **workspace 注册表：AI 用 pwd 判断并写 `~/.dsh/teacher-workspaces.json`；插件去硬编码；fallback 端口由 AI 自选（`--port 0`）** |
+| **v4.3.0** | **workspace 注册表：AI 用 pwd 判断并写 `~/.dsh/teacher-workspaces.json`；插件去硬编码；fallback 端口由 AI 自选（`--port 0`）；主课件稳定编号 `unit-04`，源文件默认不复制** |

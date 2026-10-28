@@ -17,8 +17,8 @@ version: 4.3.0
 讲义/
 └── 计算机组成原理/
     ├── index.html                     # 课程地图 + 复习入口
-    ├── unit-04-进位计数制.md           # 源文件
-    ├── unit-04-进位计数制.html         # 分步 deck
+    ├── unit-04.md           # 源文件
+    ├── unit-04.html         # 分步 deck
     ├── practice-04-错题变式.html       # 练习页
     ├── reteach-04-位权.html            # 补讲页
     ├── review-04-进制转换.html         # 复习页
@@ -258,7 +258,7 @@ python scripts/course_server.py --course "计算机组成原理" --port 8765
 # 生成单个课件 + 更新 index
 python scripts/lesson_html.py build \
   --course "计算机组成原理" \
-  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --file "讲义/计算机组成原理/unit-04.md" \
   --state "teachers/计算机组成原理/learning-state.json" \
   --server-url "http://127.0.0.1:8765"
 
@@ -275,6 +275,7 @@ python scripts/lesson_html.py index --course "计算机组成原理" --state "..
 |------|------|
 | `--course` | 课程名，决定目录 |
 | `--file` | Markdown 源文件（build 必填） |
+| `--copy-source` | 源文件不在课程目录时才复制进去；默认只警告 |
 | `--output-dir` | 输出根目录，默认 `讲义` |
 | `--course-dir` | 课程子目录名 |
 | `--state` | learning-state.json 路径 |

@@ -173,7 +173,7 @@ python scripts/dsh_host.py --course "计算机组成原理" --workspace "Teacher
 聊天里发根相对链接即可：
 
 ```markdown
-[打开第 4 单元课件](/teacher/TeacherSkillEditor/计算机组成原理/unit-04-进位计数制.html)
+[打开第 4 单元课件](/teacher/TeacherSkillEditor/计算机组成原理/unit-04.html)
 ```
 
 **如果没有插件、或不想安装**，再回退到独立课程服务（临时/兼容模式，需要端口转发）：
@@ -276,7 +276,7 @@ python scripts/course_server.py --course "计算机组成原理" --port 8765
 
 ```bash
 python scripts/lesson_html.py build --course "计算机组成原理" \
-  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --file "讲义/计算机组成原理/unit-04.md" \
   --state "teachers/计算机组成原理/learning-state.json" \
   --server-url "http://127.0.0.1:8765"
 ```
@@ -285,7 +285,7 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
 
 ```
 ❯ 第 4 单元课件已生成（共 7 步）：
-   http://127.0.0.1:8765/unit-04-进位计数制.html
+   http://127.0.0.1:8765/unit-04.html
    先看第 2-4 步；做完练习点“提交答案”，回我“答好了”。
 
 ❯ 答好了
@@ -415,6 +415,7 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 | **生成后验活** | `verify_page.py` 验文件完整性 + HTTP 200 + 标题；PASS 才发链接 |
 | **workspace 注册** | AI 用 `pwd` 判断，写 `~/.dsh/teacher-workspaces.json`；插件只服务注册根 |
 | **端口** | 插件无独立端口；fallback 才由 AI 找空闲端口（`--port 0`） |
+| **稳定文件名** | 主课件 `unit-04.md/html`，标题只放 frontmatter；源文件默认不复制 |
 | **目录去重** | 忽略没有对应 HTML 的旧 `.md`；同一单元只保留最新课件 |
 | **远程链接** | 默认发根相对链接 `/teacher/...`，不再把 `127.0.0.1` 绝对地址发给远程用户 |
 | **绝对 URL** | `dsh_host.py --public-base https://host/...` 生成 `public_url`；`local_url` 只用于本机调试 |
@@ -428,7 +429,7 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 | **动效与交互** | 主题切换、翻转卡、提示折叠、代码复制、SVG 动画 |
 | **自适应掌握度** | Lv0-Lv3；首轮 + 变式都通过才推进 |
 | **复习调度** | 1/3/7/14/30 天；到期 >5 个时本次只做 3 个 |
-| **测试 / CI** | 52 个 unittest；GitHub Actions 跑 Python 3.9-3.12 |
+| **测试 / CI** | 53 个 unittest；GitHub Actions 跑 Python 3.9-3.12 |
 
 ---
 
@@ -542,11 +543,14 @@ python scripts/dsh_register.py --workspace-root "$PWD" --json
 讲义/
 └── 计算机组成原理/
     ├── index.html                     # 进度、到期复习、薄弱点、AI 建议、搜索
-    ├── unit-04-进位计数制.html         # 分步 deck：讲义 + 图示 + 答题卡
+    ├── unit-04.html         # 分步 deck：讲义 + 图示 + 答题卡
+    ├── unit-04.md           # 源文件（stable unit id）
     ├── practice-04-错题变式.html       # 练习页
     ├── reteach-04-位权.html            # 补讲页
     └── answers/latest.json             # 答题卡提交（AI 读取）
 ```
+
+主课件用稳定编号 `unit-04.md/html`；源文件直接写进课程目录，build 默认不复制源文件（`--copy-source` 仅兼容外部源）。
 
 - 分步导航、进度条、已读勾选、键盘 ← →
 - 翻卡、提示折叠、代码复制、浅色/深色主题
@@ -562,7 +566,7 @@ python scripts/dsh_register.py --workspace-root "$PWD" --json
 ```bash
 # A. DSH 插件模式（推荐，远程 DSH 不用转发 8765）
 python scripts/lesson_html.py build --course "计算机组成原理" \
-  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --file "讲义/计算机组成原理/unit-04.md" \
   --state "teachers/计算机组成原理/learning-state.json" \
   --api-path "/teacher/api/answers" \
   --workspace "TeacherSkillEditor"
@@ -570,7 +574,7 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
 # B. 没有插件：独立课程服务（临时/兼容模式）
 python scripts/course_server.py --course "计算机组成原理" --port 8765
 python scripts/lesson_html.py build --course "计算机组成原理" \
-  --file "讲义/计算机组成原理/unit-04-进位计数制.md" \
+  --file "讲义/计算机组成原理/unit-04.md" \
   --state "teachers/计算机组成原理/learning-state.json" \
   --server-url "http://127.0.0.1:8765"
 ```
@@ -815,7 +819,7 @@ cp subjects/_template-SKILL.md subjects/your-subject-SKILL.md
 保存在你启动 AI 的工作区顶层的 `讲义/{课程}/`。例如：
 
 ```
-讲义/计算机组成原理/unit-04-进位计数制.html
+讲义/计算机组成原理/unit-04.html
 讲义/计算机组成原理/index.html
 讲义/计算机组成原理/answers/latest.json
 ```

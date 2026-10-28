@@ -5,8 +5,9 @@ Two layers:
   1. local file integrity: exists, non-trivial size, complete HTML, title
   2. HTTP reachability: 200 + HTML + expected title (optional)
 
-The caller (AI) decides the workspace and URL; this script only answers
-"can it be opened?" deterministically.
+Boundary: this is not a browser. It does not execute JS, detect a blank
+render, test remote DNS/auth, POST answers, or inspect the plugin registry.
+Those need a browser, a real submission, or dsh_host.
 """
 from __future__ import annotations
 
