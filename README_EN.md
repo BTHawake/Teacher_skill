@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
-[![Version](https://img.shields.io/badge/version-4.3.1-blue)]()
+[![Version](https://img.shields.io/badge/version-4.3.2-blue)]()
 [![Subjects](https://img.shields.io/badge/subjects-10-orange)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
 [![Multi-Platform](https://img.shields.io/badge/Multi--Platform-6%20Platforms-orange)]()
@@ -17,7 +17,7 @@ Throw a document, book, or course at an AI — it will teach you like a patient 
 
 It never assumes you "should know" something, never jumps to the answer, and never skips a step. After each concept, it checks that you truly understand before moving on.
 
-**v4.3.1 core capabilities**: **HTML is the classroom**. Each unit becomes a step-by-step HTML deck (explanations, diagrams, animations, answer card). Users read the deck and answer in chat; the AI reads the submitted answer card, then generates a reteach / practice / review page or the next unit based on mastery. **DSH host detection** prefers the same-origin `/teacher/` plugin, so remote DSH access needs no 8765 forwarding; otherwise it falls back to a standalone course server. The AI decides and registers the workspace; fallback ports are AI-chosen. 10 subjects ship with executable micro-flows (knowledge / methodology), plus a 5-minute lightweight micro-lesson.
+**v4.3.2 core capabilities**: **HTML is the classroom**. Each unit becomes a step-by-step HTML deck (explanations, diagrams, animations, answer card). Users read the deck and answer in chat; the AI reads the submitted answer card, then generates a reteach / practice / review page or the next unit based on mastery. **DSH host detection** prefers the same-origin `/teacher/` plugin, so remote DSH access needs no 8765 forwarding; otherwise it falls back to a standalone course server. The AI decides and registers the workspace; fallback ports are AI-chosen. 10 subjects ship with executable micro-flows (knowledge / methodology), plus a 5-minute lightweight micro-lesson.
 
 Now supports **10 subjects**: Math, Programming, Chinese, English, Physics, Chemistry, History, Biology, AI, and Feynman Thinking.
 
@@ -154,7 +154,7 @@ dsh plugin --profile web add "link:$PWD"
 # restart dsh web
 ```
 
-Decks are then served under DSH's `/teacher/` path. The local debug URL is `http://127.0.0.1:3080/teacher/...`, but **send a root-relative link** (e.g. `/teacher/...`) so the browser resolves it against the current DSH domain; do not send a `127.0.0.1` absolute URL to a remote user.
+Decks are then served under DSH's `/teacher/` path. The local debug URL is `http://127.0.0.1:3080/teacher/...`, but **do not send a `127.0.0.1` absolute URL to a remote user**. Choose the link by where DSH is mounted: root path → `/teacher/...`; subpath → `--public-base` and send `share_link`.
 
 The skill probes first:
 
@@ -168,10 +168,19 @@ When it returns `mode: "dsh-plugin"`, build with:
 --api-path "/teacher/api/answers" --workspace "TeacherSkillEditor"
 ```
 
-and send a root-relative link:
+Send `share_link` when present; only send root-relative `/teacher/...` when DSH is known to be at the origin root:
 
 ```markdown
 [Open unit 4](/teacher/TeacherSkillEditor/Computer%20Organization/unit-04.html)
+```
+
+Subpath example:
+
+```bash
+python scripts/dsh_host.py --course "Computer Organization" \
+  --workspace "TeacherSkillEditor" \
+  --public-base "https://host/dsh" --json
+# send share_link: https://host/dsh/teacher/...
 ```
 
 **Fallback: standalone course server (temporary/compatibility mode, requires port forwarding).** The course server binds `127.0.0.1` by default. If you connect to DSH remotely, your browser's `127.0.0.1:8765` points to **your own machine**, not the DSH host. Forward both ports:
@@ -361,6 +370,7 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | Capability | Description |
 |------------|-------------|
 | **Sandbox feedback fixes** | Preserve formula/definition line breaks; consistent deck step counts; 390px topbar no wrap; `--port 0` flush |
+| **PublicBase** | `dsh_host` emits `share_link`; subpath requires `--public-base`; root-relative is only valid at the origin root |
 | **Back to chat** | Topbar `← Back to chat`: focus opener, then referrer, then DSH root |
 | **DSH install reminder** | Detect DSH without `/teacher`; prompt to install, mark 8765 as temporary |
 | **Temporary port** | `course-server` is a compatibility fallback, not silently started |
@@ -369,7 +379,7 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | **Port** | Plugin has no separate port; fallback lets AI pick a free port (`--port 0`) |
 | **Stable filenames** | Main lessons use `unit-04.md/html`; title stays in frontmatter; source is not copied by default |
 | **Directory dedupe** | Ignore old `.md` without HTML; keep only the newest deck per unit |
-| **Remote links** | Send root-relative `/teacher/...`; never send a `127.0.0.1` absolute URL to remote users |
+| **Remote links** | Prefer `share_link`; root-relative only when DSH is at the origin root; subpath requires `--public-base`; never send `127.0.0.1` to remote users |
 | **Absolute URL** | `dsh_host.py --public-base https://host/...` builds `public_url`; `local_url` is local-only |
 | **DSH host probe** | `dsh_host.py` prefers the `/teacher` plugin, then falls back to a course server / static export |
 | **DSH plugin (separate repo)** | [dsh-Teacher-skill](https://github.com/BTHawake/dsh-Teacher-skill): decks under DSH `/teacher/`, no 8765 forwarding |

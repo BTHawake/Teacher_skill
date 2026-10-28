@@ -14,7 +14,7 @@ triggers:
   - "数据结构"
 subject: programming
 type: knowledge
-version: 4.3.1
+version: 4.3.2
 ---
 
 # 编程教学策略

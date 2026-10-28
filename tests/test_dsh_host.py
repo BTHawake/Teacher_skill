@@ -35,6 +35,10 @@ class DshHostTests(unittest.TestCase):
         self.assertFalse(result["install_required"])
         self.assertFalse(result["temporary"])
         self.assertEqual(result["recommended"], "dsh-plugin")
+        self.assertEqual(result["link_mode"], "absolute")
+        self.assertEqual(result["base_path"], "/dsh")
+        self.assertEqual(result["share_link"], result["public_url"])
+        self.assertIn("/dsh/teacher/", result["share_link"])
 
     def test_requires_registration_for_unknown_workspace(self):
         def fake_get(url, timeout=1.0):
@@ -64,6 +68,9 @@ class DshHostTests(unittest.TestCase):
         with mock.patch.object(dsh_host, "_json_get", fake_get):
             result = dsh_host.detect("计算机组成原理", "TeacherSkillEditor", "http://127.0.0.1:3080")
         self.assertEqual(result["mode"], "dsh-plugin")
+        self.assertEqual(result["link_mode"], "root-relative")
+        self.assertIsNone(result["share_link"])
+        self.assertIn("只在 DSH 挂根路径", result["link_caveat"])
 
     def test_uses_running_course_server(self):
         def fake_get(url, timeout=1.0):

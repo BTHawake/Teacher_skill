@@ -28,7 +28,7 @@ def default_state(name="default"):
             "name": name,
             "created_at": now,
             "updated_at": now,
-            "version": "4.3.1"
+            "version": "4.3.2"
         },
         "user": {
             "level": None,
@@ -58,7 +58,7 @@ def default_state(name="default"):
             "overdue": []
         },
         "mastery": {
-            "version": "4.3.1",
+            "version": "4.3.2",
             "concepts": {},
             "next_action": None
         }

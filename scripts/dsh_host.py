@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 PLUGIN_NAME = "dsh-teacher-skill"
@@ -106,6 +106,24 @@ def _public_base(value: str) -> str:
     return ""
 
 
+def _link_meta(relative_link: str, public_base: str) -> Dict[str, Any]:
+    public_url = public_base + relative_link if public_base else ""
+    base_path = urlparse(public_base).path.rstrip("/") if public_base else ""
+    return {
+        "public_base": public_base,
+        "base_path": base_path,
+        "public_url": public_url,
+        "share_link": public_url or None,
+        "link_mode": "absolute" if public_url else "root-relative",
+        "share_mode": "absolute" if public_url else None,
+        "link_caveat": (
+            ""
+            if public_url
+            else "根相对链接只在 DSH 挂根路径时正确；子路径请传 --public-base 生成 share_link。"
+        ),
+    }
+
+
 def _install_info() -> Dict[str, Any]:
     return {
         "repo": INSTALL_REPO,
@@ -134,8 +152,7 @@ def _server_result(course: str, workspace: str, server_url: str, encoded_course:
                 "temporary": False,
                 "recommended": "course-server",
             }
-            if public_base:
-                result["public_url"] = public_base + link
+            result.update(_link_meta(link, public_base))
             return result
 
     port = _free_port()
@@ -160,8 +177,7 @@ def _server_result(course: str, workspace: str, server_url: str, encoded_course:
         "recommended": "course-server",
         "install": _install_info(),
     }
-    if public_base:
-        result["public_url"] = public_base + link
+    result.update(_link_meta(link, public_base))
     return result
 
 
@@ -204,8 +220,7 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "",
                     ),
                     "chat_hint": "插件已安装，但当前 workspace 还没注册；先运行 dsh_register.py，再生成链接。",
                 }
-                if public_base:
-                    result["public_url"] = public_base + relative_link
+                result.update(_link_meta(relative_link, public_base))
                 return result
             result = {
                 "mode": "dsh-plugin",
@@ -222,8 +237,7 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "",
                 "temporary": False,
                 "recommended": "dsh-plugin",
             }
-            if public_base:
-                result["public_url"] = public_base + relative_link
+            result.update(_link_meta(relative_link, public_base))
             return result
 
     server = _server_result(course, workspace, server_url, encoded_course, public_base)
@@ -246,8 +260,7 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "",
             "install": _install_info(),
             "fallback": {**server, "temporary": True},
         }
-        if public_base:
-            result["public_url"] = public_base + relative_link
+        result.update(_link_meta(relative_link, public_base))
         return result
     return server
 
@@ -259,7 +272,7 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--workspace-root", default="", help="课程工作区根目录（默认 pwd）；AI 自己判断")
     parser.add_argument("--dsh-url", default="", help="DSH Web 地址（默认探测 127.0.0.1:3080）")
     parser.add_argument("--server-url", default="", help="已有 course_server 地址")
-    parser.add_argument("--public-base", default="", help="远程 DSH 的公网根地址，如 https://dsh.example.com；不填只输出根相对链接")
+    parser.add_argument("--public-base", default="", help="用户访问 DSH 的公网根地址，如 https://host/dsh；不填则 share_link 为空，需确认根路径")
     parser.add_argument("--json", action="store_true", help="输出 JSON")
     args = parser.parse_args(argv)
 
@@ -277,10 +290,13 @@ def main(argv: List[str] | None = None) -> int:
         print("mode: %s" % result["mode"])
         print("reason: %s" % result["reason"])
         print("link: %s" % result.get("link", ""))
+        print("link_mode: %s" % result.get("link_mode", ""))
+        if result.get("share_link"):
+            print("share: %s" % result["share_link"])
         if result.get("chat_hint"):
             print("hint: %s" % result["chat_hint"])
-        if result.get("public_url"):
-            print("public: %s" % result["public_url"])
+        if result.get("link_caveat"):
+            print("caveat: %s" % result["link_caveat"])
         if result.get("local_url"):
             print("local (only this machine): %s" % result["local_url"])
         if result.get("start_command"):

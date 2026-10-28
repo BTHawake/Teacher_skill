@@ -26,7 +26,7 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 
 | mode | 含义 | 下一步 |
 |------|------|--------|
-| `dsh-plugin` | DSH 已挂 `/teacher` 插件 | 用同源 `/teacher/api/answers`，发相对链接 |
+| `dsh-plugin` | DSH 已挂 `/teacher` 插件 | 有 `share_link` 发它；根路径发 `link`；否则问 |
 | `dsh-plugin-register-required` | 插件已装，但 workspace 没注册 | 先 `dsh_register.py`，再 build |
 | `dsh-plugin-missing` | DSH 可达，但插件没挂 | 判断是否安装；不装就用 `fallback` |
 | `course-server` | 已有或可启动独立服务 | 启动/复用服务，发绝对 URL |
@@ -119,15 +119,27 @@ python scripts/lesson_html.py build --course "计算机组成原理" \
 
 ### 发给用户
 
-优先发**根相对链接**，它会跟着用户当前 DSH 地址解析：
+先看 `dsh_host.py` 的输出，不要默认根相对：
+
+| 输出 | 发什么 |
+|------|--------|
+| `share_link` 有值（传了 `--public-base`） | 发 `share_link` |
+| 没有 `share_link`，且确认 DSH 在根路径 | 发 `link`（`/teacher/...`） |
+| 没有 `share_link`，且 DSH 在子路径/不确定 | 先问用户 DSH 地址，不要猜 |
+
+PublicBase 来源（优先级从高到低）：
+
+1. `--public-base https://host/dsh`
+2. 环境变量 `DSH_PUBLIC_URL` 或 `DSH_WEB_PUBLIC_URL`
+3. 问用户；不要从 `127.0.0.1:3080` 推断公网地址
+
+根路径示例：
 
 ```markdown
 [打开第 4 单元课件](/teacher/TeacherSkillEditor/计算机组成原理/unit-04.html)
 ```
 
-远程 DSH 用 SSH 隧道/域名反代时，**根相对链接**不需要知道公网域名，浏览器会按当前地址解析。
-
-如果必须发绝对 URL（例如远程 DSH 在子路径 `/dsh/`），不要用 `127.0.0.1`；给探测脚本传公网根地址：
+子路径必须传公网根地址：
 
 ```bash
 python scripts/dsh_host.py --course "计算机组成原理" \
@@ -135,7 +147,7 @@ python scripts/dsh_host.py --course "计算机组成原理" \
   --public-base "https://dsh.example.com/dsh" --json
 ```
 
-输出里的 `public_url` 才是远程可用的绝对地址；`local_url` 只用于本机调试。子路径场景还需要反代把 `/dsh/teacher/` 转到插件的 `/teacher/`。
+输出里的 `share_link` / `public_url` 才是远程可用的绝对地址；`local_url` 只用于本机调试。子路径场景还需要反代把 `/dsh/teacher/` 转到插件的 `/teacher/`。
 
 答题卡会自动按 `location.pathname` 里的 `/teacher/` 前缀推导 API；所以 `/dsh/teacher/...` 会提交到 `/dsh/teacher/api/answers`，不需要手改 `--api-path`。
 
@@ -245,5 +257,5 @@ python scripts/lesson_html.py build ... --server-url "http://127.0.0.1:8765"
 | 页面 404 | `workspaceRoot`、`workspace`、`course` 三层路径是否一致 |
 | 答题 401 | 插件配置了 token，但生成时没带 `--api-token` |
 | 链接能开但资源 404 | 确认访问的是 `/teacher/<workspace>/<course>/...`，不是 `/teacher/<course>/...` |
-| 远程打不开 | 用根相对链接；或确认 DSH 反代也转发了 `/teacher` |
+| 远程打不开 | 确认 DSH 在根路径还是子路径；子路径用 `--public-base` 的 `share_link`；反代转发 `/dsh/teacher/` |
 | 插件重复注册 | 重启 DSH；同一 id 只保留一份 |

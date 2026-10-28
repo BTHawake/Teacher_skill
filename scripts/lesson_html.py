@@ -39,7 +39,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-VERSION = "4.3.1"
+VERSION = "4.3.2"
 DEFAULT_OUTPUT_DIR = "讲义"
 DEFAULT_STATE_GLOB = "teachers/*/learning-state.json"
 
