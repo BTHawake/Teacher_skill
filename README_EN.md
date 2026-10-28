@@ -70,18 +70,74 @@ git clone https://github.com/BTHawake/Teacher_skill ~/.openclaw/workspace/skills
 # Restart Gateway to apply
 ```
 
-### DeepSeek Harness (DSH)
+### DeepSeek Harness (DSH) — Windows CMD / PowerShell
 
-```bash
-# Project-level (current workspace)
-mkdir -p .dsh/skills
-git clone https://github.com/BTHawake/Teacher_skill .dsh/skills/teacher
+DSH discovers `SKILL.md` under `.dsh/skills/` live, no restart needed. First verify Git is installed and on PATH:
 
-# Global (all workspaces)
-git clone https://github.com/BTHawake/Teacher_skill ~/.dsh/skills/teacher
+```bat
+git --version
 ```
 
-DSH discovers `SKILL.md` under `.dsh/skills/` live, no restart needed. Notes:
+#### Project-level (current workspace; run from the DSH workspace root)
+
+**CMD**
+
+```bat
+if not exist ".dsh\skills" mkdir ".dsh\skills"
+git clone https://github.com/BTHawake/Teacher_skill ".dsh\skills\teacher"
+```
+
+**PowerShell**
+
+```powershell
+New-Item -ItemType Directory -Force ".dsh\skills" | Out-Null
+git clone https://github.com/BTHawake/Teacher_skill ".dsh\skills\teacher"
+```
+
+#### Global (all workspaces)
+
+**CMD**
+
+```bat
+if not exist "%USERPROFILE%\.dsh\skills" mkdir "%USERPROFILE%\.dsh\skills"
+git clone https://github.com/BTHawake/Teacher_skill "%USERPROFILE%\.dsh\skills\teacher"
+```
+
+**PowerShell**
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\.dsh\skills" | Out-Null
+git clone https://github.com/BTHawake/Teacher_skill "$HOME\.dsh\skills\teacher"
+```
+
+#### Update
+
+Run only the line matching where you installed it:
+
+**CMD**
+
+```bat
+:: Project-level
+git -C ".dsh\skills\teacher" pull --ff-only
+
+:: Global
+git -C "%USERPROFILE%\.dsh\skills\teacher" pull --ff-only
+```
+
+**PowerShell**
+
+```powershell
+# Project-level
+git -C ".dsh\skills\teacher" pull --ff-only
+
+# Global
+git -C "$HOME\.dsh\skills\teacher" pull --ff-only
+```
+
+> `pull --ff-only` requires a clean local tree; if it fails, run `git -C "<install path>" status` or back up and reinstall.
+> If you installed from a zip/manual copy (no `.git`), `pull` won't work — remove the folder and clone again.
+
+Notes:
 
 - DSH ignores extra frontmatter such as `allowed-tools` / `triggers`, but reads `name` / `description`
 - Web tools are `web_search` / `web_fetch`; the pre-lesson search rule is platform-agnostic
@@ -113,6 +169,7 @@ In chat, reference with `#teacher`.
 ## Requirements
 
 - Node.js 18+ (for Claude Code / Codex CLI)
+- Git 2.0+ (for installing/updating via `git clone` / `git pull`)
 - Claude Pro/Max subscription or Anthropic API Key (Claude Code)
 - OpenAI API Key (Codex CLI)
 - Python 3.9+ (required for HTML lessons, the mastery engine and progress scripts; not needed for chat-only use)

@@ -73,16 +73,72 @@ git clone https://github.com/BTHawake/Teacher_skill ~/.openclaw/workspace/skills
 
 ### DeepSeek Harness（DSH）
 
-```bash
-# 项目级（在当前工作区生效）
-mkdir -p .dsh/skills
-git clone https://github.com/BTHawake/Teacher_skill .dsh/skills/teacher
+DSH 会实时发现 `.dsh/skills/` 下的 `SKILL.md`，装完无需重启。先确认已安装 Git，并且 `git` 在 PATH 中：
 
-# 全局（所有工作区生效）
-git clone https://github.com/BTHawake/Teacher_skill ~/.dsh/skills/teacher
+```bat
+git --version
 ```
 
-DSH 会实时发现 `.dsh/skills/` 下的 `SKILL.md`，无需重启。注意：
+#### 项目级（仅当前工作区，在 DSH 工作区根目录执行）
+
+**CMD**
+
+```bat
+if not exist ".dsh\skills" mkdir ".dsh\skills"
+git clone https://github.com/BTHawake/Teacher_skill ".dsh\skills\teacher"
+```
+
+**PowerShell**
+
+```powershell
+New-Item -ItemType Directory -Force ".dsh\skills" | Out-Null
+git clone https://github.com/BTHawake/Teacher_skill ".dsh\skills\teacher"
+```
+
+#### 全局（所有工作区生效）
+
+**CMD**
+
+```bat
+if not exist "%USERPROFILE%\.dsh\skills" mkdir "%USERPROFILE%\.dsh\skills"
+git clone https://github.com/BTHawake/Teacher_skill "%USERPROFILE%\.dsh\skills\teacher"
+```
+
+**PowerShell**
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\.dsh\skills" | Out-Null
+git clone https://github.com/BTHawake/Teacher_skill "$HOME\.dsh\skills\teacher"
+```
+
+#### 更新
+
+只执行你实际安装位置对应的一条：
+
+**CMD**
+
+```bat
+:: 项目级
+git -C ".dsh\skills\teacher" pull --ff-only
+
+:: 全局
+git -C "%USERPROFILE%\.dsh\skills\teacher" pull --ff-only
+```
+
+**PowerShell**
+
+```powershell
+# 项目级
+git -C ".dsh\skills\teacher" pull --ff-only
+
+# 全局
+git -C "$HOME\.dsh\skills\teacher" pull --ff-only
+```
+
+> `pull --ff-only` 要求本地没有冲突修改；失败时先 `git -C "<安装目录>" status` 查看，或备份后重装。
+> 如果当初是 zip/复制安装（目录里没有 `.git`），不能 `pull`，需要删除目录后重新 clone。
+
+注意：
 
 - DSH 忽略 `allowed-tools` / `triggers` 等额外 frontmatter，但会读取 `name` / `description`
 - 联网工具是 `web_search` / `web_fetch`；课前搜索规则已改为平台无关
@@ -114,6 +170,7 @@ priority: 2
 ## 环境要求
 
 - Node.js 18+（Claude Code / Codex CLI 依赖）
+- Git 2.0+（用 `git clone` / `git pull` 安装或更新时需要）
 - Claude Pro/Max 订阅或 Anthropic API Key（Claude Code）
 - OpenAI API Key（Codex CLI）
 - Python 3.9+（HTML 讲义、掌握度引擎与进度脚本需要；只聊天可不用）
