@@ -30,7 +30,21 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 | `dsh-plugin-missing` | DSH 可达，但插件没挂 | 判断是否安装；不装就用 `fallback` |
 | `course-server` | 已有或可启动独立服务 | 启动/复用服务，发绝对 URL |
 
+输出还带 `temporary` 与 `recommended`：DSH 上缺插件时 `temporary=true`、`recommended=install-plugin`；正式插件模式为 `false`。
+
 优先级固定：**DSH 插件 > 已有课程服务 > 新开本地端口**。
+
+### 缺插件时：先提醒，不静默回退
+
+`dsh-plugin-missing` 表示 DSH 可达但 `/teacher` 没挂。此时不要直接开 8765，先在聊天里说清楚：
+
+> 检测到你在 DSH 上，但 `/teacher` 插件还没装。  
+> 8765 只是临时回退，需要额外端口转发；装插件后链接直接跟着 DSH 域名走。  
+> 要现在装吗？（安装需要重启一次 DSH）
+
+- 用户确认后才安装；不装才用 `fallback`，并标注“临时链接”
+- `fallback.temporary = true`；不要把临时方案说成正式方案
+- 额外端口的定位：**临时/兼容模式**，不是 DSH 的推荐路径
 
 ---
 
@@ -107,11 +121,21 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 
 > `http://127.0.0.1:3080/...` 只对本机浏览器有效，**不要发给远程用户**。
 
+### 网页里的“返回对话”
+
+课件顶部栏有 `← 返回对话`，只在 DSH `/teacher/` 页面显示：
+
+1. 新标签打开且 `window.opener` 可用 → 聚焦回聊天标签
+2. 否则用同源 `document.referrer`（聊天页地址）
+3. 否则回到 DSH 根路径：`/teacher/...` → `/`，`/dsh/teacher/...` → `/dsh/`
+
+`file://` 或独立 `course_server` 页面不显示这个按钮，避免把课程目录误当聊天。
+
 ---
 
-## 3. 模式 B：独立课程服务
+## 3. 模式 B：独立课程服务（临时回退）
 
-没有 DSH 插件，或用户拒绝安装时：
+没有 DSH 插件、或用户拒绝安装时，才用独立服务；这是**临时/兼容模式**，不是 DSH 推荐路径：
 
 ```bash
 python scripts/course_server.py --course "计算机组成原理" --port 8765

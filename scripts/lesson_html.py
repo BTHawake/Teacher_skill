@@ -38,7 +38,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-VERSION = "4.1.1"
+VERSION = "4.2.0"
 DEFAULT_OUTPUT_DIR = "讲义"
 DEFAULT_STATE_GLOB = "teachers/*/learning-state.json"
 
@@ -949,9 +949,12 @@ a:hover{text-decoration:underline}
   appearance:none;border:1px solid var(--border);background:var(--card);color:var(--text);
   padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer;line-height:1.4;
 }
+a.btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none}
 .btn:hover{border-color:var(--accent);color:var(--accent)}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn-primary:hover{color:#fff;opacity:.92}
+.back-to-chat{border-color:var(--accent);color:var(--accent)}
+[hidden]{display:none!important}
 .shell{max-width:1180px;margin:0 auto;padding:28px 20px 60px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:36px}
 .toc{position:sticky;top:76px;align-self:start;max-height:calc(100vh - 100px);overflow:auto;padding-right:8px}
 .toc-title{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
@@ -1602,6 +1605,34 @@ VIVID_JS = r"""
     });
     pre.appendChild(btn);
   });
+
+  var back=document.getElementById('back-to-chat');
+  if(back){
+    var marker=location.pathname.indexOf('/teacher/');
+    if(marker<0){return;}
+    var dshRoot=(location.pathname.slice(0,marker)||'')+'/';
+    var origin=location.origin;
+    function sameOrigin(url){
+      try{return new URL(url,location.href).origin===origin;}catch(e){return false;}
+    }
+    var openerUrl='';
+    try{
+      if(window.opener && !window.opener.closed){openerUrl=window.opener.location.href||'';}
+    }catch(e){}
+    var ref=document.referrer||'';
+    var target='';
+    if(openerUrl && sameOrigin(openerUrl)){target=openerUrl;}
+    else if(ref && sameOrigin(ref)){target=ref;}
+    else{target=dshRoot;}
+    back.href=target;
+    back.hidden=false;
+    back.addEventListener('click',function(ev){
+      if(openerUrl && window.opener && !window.opener.closed && sameOrigin(openerUrl)){
+        ev.preventDefault();
+        try{window.opener.focus();}catch(e){}
+      }
+    });
+  }
 })();
 """
 
@@ -1978,6 +2009,7 @@ def render_lesson_page(
   <div class="topbar-inner">
     <div class="brand"><span class="logo">T</span><a href="index.html">__COURSE__</a></div>
     <div class="topbar-actions">
+      <a class="btn back-to-chat" id="back-to-chat" href="#" hidden>← 返回对话</a>
       <button class="btn" id="theme-btn" type="button">主题：自动</button>
       <button class="btn" id="toggle-answers" type="button">展开全部答案</button>
       <button class="btn" id="print-btn" type="button">打印 / PDF</button>
@@ -2414,7 +2446,7 @@ def render_index_page(
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand"><span class="logo">T</span><span>__COURSE__</span></div>
-    <div class="topbar-actions"><button class="btn" id="theme-btn" type="button">主题：自动</button><button class="btn" id="print-btn" type="button" onclick="window.print()">打印 / PDF</button></div>
+    <div class="topbar-actions"><a class="btn back-to-chat" id="back-to-chat" href="#" hidden>← 返回对话</a><button class="btn" id="theme-btn" type="button">主题：自动</button><button class="btn" id="print-btn" type="button" onclick="window.print()">打印 / PDF</button></div>
   </div>
 </header>
 <main class="index-shell" id="main">

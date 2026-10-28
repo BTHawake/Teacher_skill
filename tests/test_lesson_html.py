@@ -317,6 +317,8 @@ kind: lesson
         self.assertIn('data-server-url="http://127.0.0.1:9999"', page)
         self.assertIn('data-api-path="/teacher/api/answers"', page)
         self.assertIn('data-workspace="TeacherSkillEditor"', page)
+        self.assertIn('id="back-to-chat"', page)
+        self.assertIn("indexOf('/teacher/')", page)
         self.assertIn('data-qid="Q1"', page)
         self.assertNotIn("language-quiz", page)
         self.assertNotIn("<!--QUIZ-->", page)

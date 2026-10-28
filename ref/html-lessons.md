@@ -3,7 +3,7 @@ name: html-lessons
 description: >
   teacher.skill v4.1 HTML 课件指南：分步 deck、图示 DSL、
   答题卡、本地提交服务、课程目录与排错。
-version: 4.1.1
+version: 4.2.0
 ---
 
 # HTML 课件指南（v4.0）

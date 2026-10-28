@@ -15,7 +15,7 @@ triggers:
   - "概率"
 subject: math
 type: knowledge
-version: 4.1.1
+version: 4.2.0
 ---
 
 # 数学教学策略

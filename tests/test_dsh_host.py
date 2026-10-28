@@ -33,6 +33,8 @@ class DshHostTests(unittest.TestCase):
             "%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BB%84%E6%88%90%E5%8E%9F%E7%90%86/index.html",
         )
         self.assertFalse(result["install_required"])
+        self.assertFalse(result["temporary"])
+        self.assertEqual(result["recommended"], "dsh-plugin")
 
     def test_uses_running_course_server(self):
         def fake_get(url, timeout=1.0):
@@ -65,7 +67,11 @@ class DshHostTests(unittest.TestCase):
         self.assertEqual(result["mode"], "dsh-plugin-missing")
         self.assertEqual(result["api_path"], "/teacher/api/answers")
         self.assertTrue(result["install_required"])
+        self.assertTrue(result["temporary"])
+        self.assertEqual(result["recommended"], "install-plugin")
+        self.assertIn("8765 只是临时回退", result["chat_hint"])
         self.assertEqual(result["fallback"]["mode"], "course-server")
+        self.assertTrue(result["fallback"]["temporary"])
 
 
 if __name__ == "__main__":

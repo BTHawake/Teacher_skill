@@ -131,6 +131,8 @@ def _server_result(course: str, workspace: str, server_url: str, encoded_course:
                 "local_url": base + link,
                 "plugin": None,
                 "install_required": False,
+                "temporary": False,
+                "recommended": "course-server",
             }
             if public_base:
                 result["public_url"] = public_base + link
@@ -154,6 +156,8 @@ def _server_result(course: str, workspace: str, server_url: str, encoded_course:
         ),
         "plugin": None,
         "install_required": True,
+        "temporary": False,
+        "recommended": "course-server",
         "install": _install_info(),
     }
     if public_base:
@@ -184,6 +188,8 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "",
                 "local_url": base + relative_link,
                 "plugin": health,
                 "install_required": False,
+                "temporary": False,
+                "recommended": "dsh-plugin",
             }
             if public_base:
                 result["public_url"] = public_base + relative_link
@@ -203,8 +209,11 @@ def detect(course: str, workspace: str, dsh_url: str = "", server_url: str = "",
             "local_url": dsh_base + relative_link,
             "plugin": None,
             "install_required": True,
+            "temporary": True,
+            "recommended": "install-plugin",
+            "chat_hint": "检测到你在 DSH 上，但 /teacher 插件还没装。8765 只是临时回退，需要额外端口转发；装插件后链接直接跟着 DSH 域名走。要现在装吗？（安装需要重启一次 DSH）",
             "install": _install_info(),
-            "fallback": server,
+            "fallback": {**server, "temporary": True},
         }
         if public_base:
             result["public_url"] = public_base + relative_link
@@ -230,6 +239,8 @@ def main(argv: List[str] | None = None) -> int:
         print("mode: %s" % result["mode"])
         print("reason: %s" % result["reason"])
         print("link: %s" % result.get("link", ""))
+        if result.get("chat_hint"):
+            print("hint: %s" % result["chat_hint"])
         if result.get("public_url"):
             print("public: %s" % result["public_url"])
         if result.get("local_url"):

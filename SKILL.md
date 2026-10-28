@@ -10,7 +10,7 @@ description: >
   当用户说"教我"、"帮我学"、"帮我理解"、"模仿XX老师的教学风格"或上传资料要求学习时触发。
   不要在用户只是问一个简单问题时触发——只在涉及系统性学习/教学时激活。
 argument-hint: "[topic or paste materials]"
-version: 4.1.1
+version: 4.2.0
 user-invocable: true
 allowed-tools: Read, Write, Edit, Bash, WebSearch, WebFetch
 triggers:
@@ -92,6 +92,8 @@ triggers:
 **v4.0 核心变化**：HTML 从"课后讲义"变成"主课堂"。每单元一个分步课件，用户看 HTML、在聊天里答题；答题卡提交到本地服务，AI 读取答案后决定补讲/练习/复习/推进。
 
 **v4.1 核心变化**：生成前先探测宿主。优先挂 DSH 自己的 `/teacher` 插件，用户拿到的是可直接打开的链接；没有插件再回退独立课程服务。
+
+**v4.2 核心变化**：DSH 用户缺插件时**先提醒安装**，8765 只作为临时回退；课件顶部栏提供 `← 返回对话`。
 
 **如果不知道当前该做什么**：看下方的"什么时候做什么事"表。如果用户刚上线，先加载学习状态和到期复习，再打开 `讲义/{课程}/index.html`。
 
@@ -378,7 +380,7 @@ python scripts/mastery.py practice --state "teachers/课程/learning-state.json"
 
 ---
 
-# HTML 课件（v4.1）：主课堂 + 自动选宿主
+# HTML 课件（v4.2）：主课堂 + 自动选宿主
 
 每单元生成一个**分步课件**，用户看 HTML 学习；聊天只负责答疑、批改和决策。
 
@@ -404,11 +406,26 @@ python scripts/dsh_host.py --course "计算机组成原理" \
 | mode | 做法 | 发给用户 |
 |------|------|----------|
 | `dsh-plugin` | 用 `/teacher/` 同源挂载 | 根相对链接 `/teacher/...` |
-| `dsh-plugin-missing` | DSH 可达但插件没挂；判断是否安装，不装用 `fallback` | 安装/回退说明 |
-| `course-server`（已有） | 复用现有服务 | 现有 `http://...` 链接 |
-| `course-server`（需启动） | 启动课程服务 | `http://127.0.0.1:<port>/...` |
+| `dsh-plugin-missing` | DSH 可达但插件没挂；**先提醒安装**，不静默回退 | 说明 8765 只是临时方案；等用户确认 |
+| `course-server`（已有） | 复用现有服务 | 现有 `http://...` 链接（临时模式） |
+| `course-server`（需启动） | 启动课程服务 | `http://127.0.0.1:<port>/...`（临时模式） |
 
 **优先级**：DSH 插件 > 已有课程服务 > 新开端口。远程 DSH 首选插件，避免 8765 转发。
+
+### 缺插件时的聊天话术
+
+检测到 `dsh-plugin-missing` 时，先说清楚再动手：
+
+> 检测到你在 DSH 上，但 `/teacher` 插件还没装。  
+> 8765 只是临时回退，需要额外端口转发；装插件后链接直接跟着 DSH 域名走。  
+> 要现在装吗？（安装需要重启一次 DSH）
+
+用户确认后才安装；不装才用 `fallback`，并在聊天里标注“临时链接”。不要偷偷改 `~/.dsh` 或重启 DSH。
+
+### 网页里的“返回对话”
+
+DSH `/teacher/` 页面的顶部栏有 `← 返回对话`：
+优先聚焦 `window.opener`，其次回 `document.referrer`，最后回 DSH 根路径。独立 8765 / `file://` 页面不显示，避免误跳课程目录。
 
 ### 插件模式（远程 DSH 首选）
 
@@ -530,7 +547,7 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 - `ref/skill-to-curriculum-guide.md` — 技能教学操作指引
 - `ref/nuwa-absorption.md` — 女娲.skill 吸收分析报告（v2.3）
 - `ref/reverse-distillation-report.md` — 技能教学调研报告（生态分析）
-- `ref/improvement-roadmap.md` — 改进计划与版本路线图（v4.1 更新）
+- `ref/improvement-roadmap.md` — 改进计划与版本路线图（v4.2 更新）
 - `ref/deliberate-practice-research.md` — 刻意练习调研报告（v2.5 设计依据）
 - `ref/forgetting-curve-research.md` — 艾宾浩斯遗忘曲线调研（v2.6 间隔复习设计依据）
 - `ref/unified-extraction-research.md` — 统一提取管道调研（v2.4 设计依据）
@@ -550,10 +567,10 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 
 ## 脚本
 
-- `scripts/lesson_html.py` — **v4.1**：Markdown → 分步 HTML 课件 + 答题卡 + 课程目录
-- `scripts/dsh_host.py` — **v4.1**：探测 DSH 插件/课程服务/空闲端口，给出链接决策
-- `scripts/course_server.py` — **v4.1**：本地课件服务 + 答题卡提交写入 `answers/latest.json`
-- `scripts/mastery.py` — **v4.1**：掌握度记录、复习调度、下一步建议、薄弱点练习目标
+- `scripts/lesson_html.py` — **v4.2**：Markdown → 分步 HTML 课件 + 答题卡 + 课程目录
+- `scripts/dsh_host.py` — **v4.2**：探测 DSH 插件/课程服务/空闲端口，给出链接决策
+- `scripts/course_server.py` — **v4.2**：本地课件服务 + 答题卡提交写入 `answers/latest.json`
+- `scripts/mastery.py` — **v4.2**：掌握度记录、复习调度、下一步建议、薄弱点练习目标
 - `scripts/generate_quiz.py` — 自动生成练习题
 - `scripts/evaluate_answer.py` — 评估用户答案并给出反馈
 - `scripts/track_progress.py` — 追踪学习进度
@@ -599,3 +616,4 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 | **v4.0.0** | **HTML-first：分步 deck 主课堂 + 答题卡提交服务 + 补讲/练习/复习页；动画、主题、翻转卡、图示 DSL（flow/layers/timeline/cycle/compare/bars）；AI 读取 `answers/latest.json` 批改** |
 | **v4.1.0** | **DSH 宿主探测：优先同源 `/teacher` 插件，其次独立课程服务，自动给可直接打开的链接；插件独立仓库 dsh-Teacher-skill；答题卡支持 `--api-path` / workspace / token** |
 | **v4.1.1** | **远程链接修复：默认发根相对 `/teacher/...`，不再发 `127.0.0.1` 绝对地址；需要绝对 URL 时用 `--public-base` 生成 `public_url`** |
+| **v4.2.0** | **DSH 缺插件先提醒安装、8765 标注临时回退；网页顶部栏新增 `← 返回对话`（opener → referrer → DSH 根路径）** |

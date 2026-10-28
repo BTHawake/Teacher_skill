@@ -3,7 +3,7 @@ name: teaching-sop
 description: >
   teacher-skill 核心教学流程（Phase 0-5）。包含所有教学步骤、
   工具使用规则、通用规则和用户信号处理。
-version: 4.1.1
+version: 4.2.0
 ---
 
 # 教学工作流（完整 SOP）
