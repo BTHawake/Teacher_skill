@@ -3,6 +3,7 @@
 
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -184,6 +185,34 @@ class BuildTests(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         return path
+
+    def test_scan_ignores_orphan_markdown(self):
+        course = self.out / "课程"
+        course.mkdir(parents=True)
+        (course / "unit-01-old.md").write_text(
+            "---\nunit: 1\ntitle: 旧稿\nkind: lesson\n---\n", encoding="utf-8"
+        )
+        (course / "unit-02.md").write_text(
+            "---\nunit: 2\ntitle: 正式\nkind: lesson\n---\n", encoding="utf-8"
+        )
+        (course / "unit-02.html").write_text("<html></html>", encoding="utf-8")
+        entries = lh.scan_entries(course)
+        self.assertEqual([entry["title"] for entry in entries], ["正式"])
+
+    def test_scan_dedupes_same_unit_by_newest_html(self):
+        course = self.out / "课程"
+        course.mkdir(parents=True)
+        for stem, title, stamp in [
+            ("unit-01-old", "旧稿", 100),
+            ("unit-01-new", "新稿", 200),
+        ]:
+            md = course / (stem + ".md")
+            html = course / (stem + ".html")
+            md.write_text("---\nunit: 1\ntitle: %s\nkind: lesson\n---\n" % title, encoding="utf-8")
+            html.write_text("<html></html>", encoding="utf-8")
+            os.utime(html, (stamp, stamp))
+        entries = lh.scan_entries(course)
+        self.assertEqual([entry["title"] for entry in entries], ["新稿"])
 
     def test_build_creates_html_and_index(self):
         src = self._write("unit-04.md", SAMPLE)

@@ -2566,6 +2566,10 @@ def scan_entries(course_dir: Path) -> List[Dict[str, Any]]:
     for path in sorted(course_dir.glob("*.md")):
         if path.name.startswith("."):
             continue
+        html_path = path.with_suffix(".html")
+        if not html_path.exists():
+            # 旧版/重命名前的源文件没有对应 HTML，不属于当前课程目录。
+            continue
         try:
             meta, _ = parse_frontmatter(_read_text(path))
         except (OSError, UnicodeError) as exc:
@@ -2573,9 +2577,24 @@ def scan_entries(course_dir: Path) -> List[Dict[str, Any]]:
             continue
         if not meta.get("title") and not re.search(r"unit", path.stem, re.I):
             continue
-        entries.append(_entry_from_markdown(path, meta))
-    entries.sort(key=_sort_key)
-    return entries
+        entry = _entry_from_markdown(path, meta)
+        entry["_html_mtime"] = html_path.stat().st_mtime
+        entries.append(entry)
+    entries.sort(key=lambda entry: (_sort_key(entry), -entry.get("_html_mtime", 0)))
+    # 同一单元只保留最新生成的 lesson；旧的重命名稿不再重复出现在目录里。
+    unique: List[Dict[str, Any]] = []
+    seen_lessons = set()
+    for entry in entries:
+        key = None
+        if entry.get("kind") == "lesson" and entry.get("unit") not in ("", None):
+            key = ("lesson", str(entry["unit"]))
+        if key is not None:
+            if key in seen_lessons:
+                continue
+            seen_lessons.add(key)
+        entry.pop("_html_mtime", None)
+        unique.append(entry)
+    return unique
 
 
 def _coerce_state_map(state: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -2776,6 +2795,15 @@ def build_lesson(
         md_path.write_text(raw, encoding="utf-8")
 
     entries = scan_entries(course_dir)
+    current_entry = _entry_from_markdown(md_path, meta)
+    entries = [entry for entry in entries if entry["path"].resolve() != md_path.resolve()]
+    if current_entry.get("kind") == "lesson" and current_entry.get("unit") not in ("", None):
+        entries = [
+            entry for entry in entries
+            if not (entry.get("kind") == "lesson" and str(entry.get("unit")) == str(current_entry["unit"]))
+        ]
+    entries.append(current_entry)
+    entries.sort(key=_sort_key)
     state = load_state(state_path)
     apply_state(entries, state)
     current_index = next(

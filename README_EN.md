@@ -375,7 +375,7 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | **Animations & interactions** | Theme toggle, flip cards, hints, code copy, SVG animations |
 | **Adaptive mastery** | Lv0-Lv3; advance only after first check + variant |
 | **Review schedule** | 1/3/7/14/30 days; when >5 items are due, process only 3 this session |
-| **Tests / CI** | 41 unit tests; GitHub Actions on Python 3.9-3.12 |
+| **Tests / CI** | 43 unit tests; GitHub Actions on Python 3.9-3.12 |
 
 ---
 
