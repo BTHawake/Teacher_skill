@@ -17,7 +17,7 @@ triggers:
   - "History"
 subject: history
 type: knowledge
-version: 4.3.0
+version: 4.3.1
 ---
 
 # 历史教学策略

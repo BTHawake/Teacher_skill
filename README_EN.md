@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
-[![Version](https://img.shields.io/badge/version-4.3.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.3.1-blue)]()
 [![Subjects](https://img.shields.io/badge/subjects-10-orange)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
 [![Multi-Platform](https://img.shields.io/badge/Multi--Platform-6%20Platforms-orange)]()
@@ -17,7 +17,7 @@ Throw a document, book, or course at an AI — it will teach you like a patient 
 
 It never assumes you "should know" something, never jumps to the answer, and never skips a step. After each concept, it checks that you truly understand before moving on.
 
-**v4.3 core capabilities**: **HTML is the classroom**. Each unit becomes a step-by-step HTML deck (explanations, diagrams, animations, answer card). Users read the deck and answer in chat; the AI reads the submitted answer card, then generates a reteach / practice / review page or the next unit based on mastery. **DSH host detection** prefers the same-origin `/teacher/` plugin, so remote DSH access needs no 8765 forwarding; otherwise it falls back to a standalone course server. The AI decides and registers the workspace; fallback ports are AI-chosen. 10 subjects ship with executable micro-flows (knowledge / methodology), plus a 5-minute lightweight micro-lesson.
+**v4.3.1 core capabilities**: **HTML is the classroom**. Each unit becomes a step-by-step HTML deck (explanations, diagrams, animations, answer card). Users read the deck and answer in chat; the AI reads the submitted answer card, then generates a reteach / practice / review page or the next unit based on mastery. **DSH host detection** prefers the same-origin `/teacher/` plugin, so remote DSH access needs no 8765 forwarding; otherwise it falls back to a standalone course server. The AI decides and registers the workspace; fallback ports are AI-chosen. 10 subjects ship with executable micro-flows (knowledge / methodology), plus a 5-minute lightweight micro-lesson.
 
 Now supports **10 subjects**: Math, Programming, Chinese, English, Physics, Chemistry, History, Biology, AI, and Feynman Thinking.
 
@@ -360,6 +360,7 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 
 | Capability | Description |
 |------------|-------------|
+| **Sandbox feedback fixes** | Preserve formula/definition line breaks; consistent deck step counts; 390px topbar no wrap; `--port 0` flush |
 | **Back to chat** | Topbar `← Back to chat`: focus opener, then referrer, then DSH root |
 | **DSH install reminder** | Detect DSH without `/teacher`; prompt to install, mark 8765 as temporary |
 | **Temporary port** | `course-server` is a compatibility fallback, not silently started |
@@ -380,7 +381,7 @@ The AI will analyze the instructor's teaching style (sentence structure, vocabul
 | **Animations & interactions** | Theme toggle, flip cards, hints, code copy, SVG animations |
 | **Adaptive mastery** | Lv0-Lv3; advance only after first check + variant |
 | **Review schedule** | 1/3/7/14/30 days; when >5 items are due, process only 3 this session |
-| **Tests / CI** | 53 unit tests; GitHub Actions on Python 3.9-3.12 |
+| **Tests / CI** | 54 unit tests; GitHub Actions on Python 3.9-3.12 |
 
 ---
 

@@ -10,7 +10,7 @@ description: >
   当用户说"教我"、"帮我学"、"帮我理解"、"模仿XX老师的教学风格"或上传资料要求学习时触发。
   不要在用户只是问一个简单问题时触发——只在涉及系统性学习/教学时激活。
 argument-hint: "[topic or paste materials]"
-version: 4.3.0
+version: 4.3.1
 user-invocable: true
 allowed-tools: Read, Write, Edit, Bash, WebSearch, WebFetch
 triggers:
@@ -654,3 +654,4 @@ python scripts/lesson_html.py index --course "课程" --state "..."
 | **v4.1.1** | **远程链接修复：默认发根相对 `/teacher/...`，不再发 `127.0.0.1` 绝对地址；需要绝对 URL 时用 `--public-base` 生成 `public_url`** |
 | **v4.2.0** | **DSH 缺插件先提醒安装、8765 标注临时回退；网页顶部栏新增 `← 返回对话`（opener → referrer → DSH 根路径）** |
 | **v4.3.0** | **workspace 注册表：AI 用 pwd 判断并写 `~/.dsh/teacher-workspaces.json`；插件去硬编码；fallback 端口由 AI 自选（`--port 0`）；主课件稳定编号 `unit-04`，源文件默认不复制** |
+| **v4.3.1** | **试听反馈修复：公式多行保留、步数统一、移动端顶栏不换行、`--port 0` flush、独立服务文档 URL 修正** |

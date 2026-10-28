@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-green)](https://agentskills.io)
-[![Version](https://img.shields.io/badge/version-4.3.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.3.1-blue)]()
 [![Subjects](https://img.shields.io/badge/subjects-10-orange)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-blueviolet)](https://claude.ai/code)
 [![Multi-Platform](https://img.shields.io/badge/Multi--Platform-6%20Platforms-orange)]()
@@ -18,7 +18,7 @@
 
 不假设你"应该知道"什么，不急于给答案，不跳过任何一步。每个知识点讲完都会确认你真的懂了，然后再往下走。
 
-**v4.3 核心能力**：**HTML 是主课堂**。每单元生成一个分步 HTML 课件（讲解 + 图示 + 动画 + 答题卡），用户看 HTML、在聊天里答题；AI 读取答题卡提交，按掌握度生成补讲/练习/复习页或下一单元。新增 **DSH 宿主探测**：优先挂到 DSH 自己的 `/teacher/` 插件，远程访问不用转发 8765；没有插件时回退独立课程服务；workspace 由 AI 判断并注册，端口由 AI 自选。10 个学科自带执行微流程，按知识型 / 方法论型分流；支持 5 分钟轻量微课。
+**v4.3.1 核心能力**：**HTML 是主课堂**。每单元生成一个分步 HTML 课件（讲解 + 图示 + 动画 + 答题卡），用户看 HTML、在聊天里答题；AI 读取答题卡提交，按掌握度生成补讲/练习/复习页或下一单元。新增 **DSH 宿主探测**：优先挂到 DSH 自己的 `/teacher/` 插件，远程访问不用转发 8765；没有插件时回退独立课程服务；workspace 由 AI 判断并注册，端口由 AI 自选。10 个学科自带执行微流程，按知识型 / 方法论型分流；支持 5 分钟轻量微课。
 
 现在支持 **10 个学科** 的专业教学策略：数学、编程、语文、英语、物理、化学、历史、生物、AI、费曼思维。说"我想学会巴菲特的思维方式"会自动搜索匹配 skill 并生成课程。
 
@@ -413,6 +413,7 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 | **DSH 安装提醒** | 检测到 DSH 但缺插件时先提醒安装；8765 明确标注“临时回退” |
 | **临时端口** | `course-server` 降级为兼容模式，不再默认静默启动 |
 | **生成后验活** | `verify_page.py` 验文件完整性 + HTTP 200 + 标题；PASS 才发链接 |
+| **试听修复** | 公式/定义多行保留；deck 步数统一；390px 顶栏不换行；`--port 0` flush |
 | **workspace 注册** | AI 用 `pwd` 判断，写 `~/.dsh/teacher-workspaces.json`；插件只服务注册根 |
 | **端口** | 插件无独立端口；fallback 才由 AI 找空闲端口（`--port 0`） |
 | **稳定文件名** | 主课件 `unit-04.md/html`，标题只放 frontmatter；源文件默认不复制 |
@@ -429,7 +430,7 @@ AI 会自动分析该教师的教学风格（句式、词汇、节奏、互动�
 | **动效与交互** | 主题切换、翻转卡、提示折叠、代码复制、SVG 动画 |
 | **自适应掌握度** | Lv0-Lv3；首轮 + 变式都通过才推进 |
 | **复习调度** | 1/3/7/14/30 天；到期 >5 个时本次只做 3 个 |
-| **测试 / CI** | 53 个 unittest；GitHub Actions 跑 Python 3.9-3.12 |
+| **测试 / CI** | 54 个 unittest；GitHub Actions 跑 Python 3.9-3.12 |
 
 ---
 

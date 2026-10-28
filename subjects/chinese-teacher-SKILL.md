@@ -15,7 +15,7 @@ triggers:
   - "文学"
 subject: chinese
 type: knowledge
-version: 4.3.0
+version: 4.3.1
 ---
 
 # 语文教学策略

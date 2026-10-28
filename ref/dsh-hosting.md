@@ -190,7 +190,7 @@ python scripts/lesson_html.py build ... --server-url "http://127.0.0.1:8765"
 发给用户：
 
 ```markdown
-[打开第 4 单元课件](http://127.0.0.1:8765/计算机组成原理/unit-04.html)
+[打开第 4 单元课件](http://127.0.0.1:8765/unit-04.html)
 ```
 
 - 本机浏览器可直接打开

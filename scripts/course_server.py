@@ -189,10 +189,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("[error] 无法监听 %s:%s：%s" % (args.host, args.port, exc), file=sys.stderr)
         return 2
     actual_port = server.server_address[1]
-    print("teacher.skill v%s 课件服务已启动" % VERSION)
-    print("地址：http://%s:%d/" % (args.host, actual_port))
-    print("答案文件：%s" % (answer_dir / "latest.json"))
-    print("按 Ctrl+C 停止。")
+    print("teacher.skill v%s 课件服务已启动" % VERSION, flush=True)
+    print("地址：http://%s:%d/" % (args.host, actual_port), flush=True)
+    print("答案文件：%s" % (answer_dir / "latest.json"), flush=True)
+    print("按 Ctrl+C 停止。", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

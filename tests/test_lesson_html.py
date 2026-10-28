@@ -122,6 +122,13 @@ class MarkdownTests(unittest.TestCase):
         self.assertIn('style="text-align:center"', content)
         self.assertIn('style="text-align:right"', content)
 
+    def test_formula_callout_keeps_line_breaks(self):
+        _, content, _ = lh.render_markdown(
+            "::: formula 必背\n周转 = 完成 - 到达\n等待 = 周转 - 服务\n:::"
+        )
+        self.assertIn('class="callout-lines"', content)
+        self.assertIn("周转 = 完成 - 到达\n等待 = 周转 - 服务", content)
+
     def test_callouts_and_answers(self):
         _, content, _ = lh.render_markdown(
             "::: definition 基数\n定义内容\n:::\n\n::: answer\n答案内容\n:::"
@@ -347,7 +354,9 @@ kind: lesson
         page = result["html"].read_text(encoding="utf-8")
         self.assertIn('<body class="layout-deck">', page)
         self.assertIn('class="deck"', page)
-        self.assertIn('data-total="3"', page)
+        self.assertIn('data-total="2"', page)
+        self.assertIn('class="deck-counter">开始</span>', page)
+        self.assertIn("本单元共 2 个步骤", page)
         self.assertIn('class="deck-step', page)
         self.assertIn('class="quiz-card"', page)
         self.assertIn('data-server-url="http://127.0.0.1:9999"', page)

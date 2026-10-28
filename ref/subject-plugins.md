@@ -3,7 +3,7 @@ name: subject-plugins
 description: >
   teacher.skill v4.1 学科插件协议：学科元数据、执行微流程、
   knowledge / methodology 两类教学路径。
-version: 4.3.0
+version: 4.3.1
 ---
 
 # 学科插件协议（v4.0）
@@ -21,7 +21,7 @@ name: math-teacher
 description: ...
 subject: math            # 学科标识
 type: knowledge          # knowledge | methodology
-version: 4.3.0
+version: 4.3.1
 triggers: [...]
 ---
 ```
@@ -101,7 +101,7 @@ triggers: [...]
 ## 5. 新增学科
 
 1. 复制 `subjects/_template-SKILL.md`
-2. 填写 frontmatter：`subject`、`type`、`version: 4.3.0`
+2. 填写 frontmatter：`subject`、`type`、`version: 4.3.1`
 3. 写 5 步「执行微流程」
 4. 在 `SKILL.md` 学科表加一行
 5. 在 `config/skill-config.json` 的 `subjects` 中登记（可选）

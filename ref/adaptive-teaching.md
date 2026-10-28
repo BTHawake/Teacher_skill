@@ -3,7 +3,7 @@ name: adaptive-teaching
 description: >
   teacher.skill v4.1 自适应教学引擎：根据 HTML 答题卡提交与掌握度，
   决定补讲、继续练习、到期复习或推进下一单元。
-version: 4.3.0
+version: 4.3.1
 ---
 
 # 自适应教学引擎（v4.0）

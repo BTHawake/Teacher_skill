@@ -39,7 +39,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-VERSION = "4.3.0"
+VERSION = "4.3.1"
 DEFAULT_OUTPUT_DIR = "讲义"
 DEFAULT_STATE_GLOB = "teachers/*/learning-state.json"
 
@@ -408,6 +408,9 @@ class MarkdownRenderer:
                 elif kind in diagram_kinds:
                     out.append(self._render_diagram(kind, title, inner))
                 else:
+                    if kind in ("formula", "definition", "hint", "think"):
+                        inner_lines = [_inline(line) for line in inner if line.strip()]
+                        inner_html = '<div class="callout-lines">%s</div>' % "\n".join(inner_lines)
                     out.append(self._render_callout(kind, title, inner_html))
                 i = j + 1
                 continue
@@ -954,6 +957,14 @@ a.btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn-primary:hover{color:#fff;opacity:.92}
 .back-to-chat{border-color:var(--accent);color:var(--accent)}
+@media (max-width:640px){
+  .topbar-inner{padding:8px 10px;gap:8px}
+  .topbar-actions{gap:4px;flex-wrap:nowrap;overflow-x:auto;max-width:calc(100vw - 68px);scrollbar-width:none}
+  .topbar-actions::-webkit-scrollbar{display:none}
+  .topbar-actions .btn{padding:5px 8px;font-size:11.5px;white-space:nowrap;flex:0 0 auto}
+  .brand{flex:0 0 auto}
+  .brand a{max-width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
 [hidden]{display:none!important}
 .shell{max-width:1180px;margin:0 auto;padding:28px 20px 60px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:36px}
 .toc{position:sticky;top:76px;align-self:start;max-height:calc(100vh - 100px);overflow:auto;padding-right:8px}
@@ -1039,6 +1050,7 @@ h1{font-size:32px;line-height:1.3;margin:0 0 14px;letter-spacing:-.01em}
 .callout-body>*:first-child{margin-top:0}
 .callout-body>*:last-child{margin-bottom:0}
 .callout-body p{margin:5px 0}
+.callout-lines{white-space:pre-wrap;overflow-wrap:anywhere}
 .callout.definition{border-left-color:var(--purple);background:var(--purple-soft)}
 .callout.definition .callout-title{color:var(--purple)}
 .callout.example{border-left-color:var(--accent);background:var(--accent-soft)}
@@ -1496,6 +1508,8 @@ DECK_JS = r"""
   var prev=deck.querySelector('.deck-prev');
   var next=deck.querySelector('.deck-next');
   var current=0;
+  var total=parseInt(deck.getAttribute('data-total'),10);
+  if(!total){total=Math.max(0,steps.length-1);}
   var visited={};
   var visitKey='teacher-deck:'+location.pathname;
   try{visited=JSON.parse(localStorage.getItem(visitKey)||'{}')||{};}catch(e){visited={};}
@@ -1507,9 +1521,9 @@ DECK_JS = r"""
     links.forEach(function(a,i){
       var seen=!!visited[i];
       a.classList.toggle('visited',seen);
-      if(seen){count++;}
+      if(seen && i>0){count++;}
     });
-    if(readEl){readEl.textContent='已读 '+count+'/'+steps.length;}
+    if(readEl){readEl.textContent='已读 '+count+'/'+total;}
   }
   function markVisited(index){
     if(!visited[index]){visited[index]=true;saveVisited();}
@@ -1526,8 +1540,8 @@ DECK_JS = r"""
       a.classList.toggle('active',i===current);
       if(i===current){a.setAttribute('aria-current','step');}else{a.removeAttribute('aria-current');}
     });
-    if(bar){bar.style.width=((current+1)/steps.length*100)+'%';}
-    if(counter){counter.textContent=(current+1)+' / '+steps.length;}
+    if(bar){bar.style.width=(total?current/total*100:0)+'%';}
+    if(counter){counter.textContent=current===0?'开始':current+' / '+total;}
     markVisited(current);
     if(prev){prev.disabled=current===0;}
     if(next){next.disabled=current===steps.length-1;}
@@ -1793,7 +1807,7 @@ def _render_deck(content_html: str) -> Tuple[str, List[str]]:
         preamble = parts[0].strip()
         parts = parts[1:]
     sections = parts
-    total = len(sections) + 1
+    content_total = len(sections)
     labels = ["开始"]
     for section in sections:
         match = re.search(r"<h2[^>]*>(.*?)</h2>", section, re.S)
@@ -1803,8 +1817,8 @@ def _render_deck(content_html: str) -> Tuple[str, List[str]]:
     intro = [
         '<section class="deck-step active" id="step-1" data-step="0" aria-hidden="false">',
         '<div class="step-kicker">开始</div>',
-        "<p>本单元共 %d 步。建议按顺序阅读；有疑问随时在聊天里问，做完练习再提交答案。</p>"
-        % total,
+        "<p>本单元共 %d 个步骤。建议按顺序阅读；有疑问随时在聊天里问，做完练习再提交答案。</p>"
+        % content_total,
     ]
     if preamble:
         intro.append(preamble)
@@ -1815,20 +1829,20 @@ def _render_deck(content_html: str) -> Tuple[str, List[str]]:
         steps.append(
             '<section class="deck-step" id="step-%d" data-step="%d" aria-hidden="true">'
             '<div class="step-kicker">步骤 %d / %d</div>%s</section>'
-            % (idx + 1, idx, idx, len(sections), section)
+            % (idx + 1, idx, idx, content_total, section)
         )
 
     deck = (
         '<div class="deck" data-total="%d">'
         '<div class="deck-top"><div class="deck-progress"><i></i></div>'
-        '<span class="deck-counter">1 / %d</span>'
+        '<span class="deck-counter">开始</span>'
         '<span class="deck-read">已读 0/%d</span></div>'
         '<div class="deck-steps">%s</div>'
         '<div class="deck-controls">'
         '<button class="btn deck-prev" type="button" disabled>← 上一步</button>'
         '<button class="btn btn-primary deck-next" type="button">下一步 →</button>'
         "</div></div>"
-        % (total, total, total, "".join(steps))
+        % (content_total, content_total, "".join(steps))
     )
     return deck, labels
 

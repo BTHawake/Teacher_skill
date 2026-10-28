@@ -18,7 +18,7 @@ triggers:
   - "Chemistry"
 subject: chemistry
 type: knowledge
-version: 4.3.0
+version: 4.3.1
 ---
 
 # 化学教学策略
